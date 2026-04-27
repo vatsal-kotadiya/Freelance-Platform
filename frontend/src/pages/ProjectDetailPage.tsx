@@ -96,7 +96,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!project || !hasChat || !token) return;
 
-    socket = io('http://localhost:5000', { auth: { token } });
+    socket = io(import.meta.env.VITE_SOCKET_URL, { auth: { token } });
     socket.emit('joinRoom', id);
     socket.on('newMessage', (msg: any) => {
       setMessages((prev) => [...prev, msg]);

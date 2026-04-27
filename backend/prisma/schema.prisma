@@ -50,6 +50,9 @@ model User {
   location   String?
   hourlyRate Float?
 
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+
   projects           Project[]       @relation("ClientProjects")
   bids               Bid[]           @relation("FreelancerBids")
   sentMessages       Message[]       @relation("SentMessages")

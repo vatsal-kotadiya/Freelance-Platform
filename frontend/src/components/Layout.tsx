@@ -22,7 +22,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     getNotifications().then(setNotifications).catch(() => {});
 
-    notifSocket = io('http://localhost:5000', { auth: { token } });
+    notifSocket = io(import.meta.env.VITE_SOCKET_URL, { auth: { token } });
     notifSocket.on('notification', (n) => addNotification(n));
 
     return () => {

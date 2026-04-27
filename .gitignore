@@ -5,10 +5,11 @@ node_modules/
 dist/
 build/
 
-# Environment variables
+# Environment variables (keep .env.example files — they are safe to commit)
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Uploads
 backend/uploads/*

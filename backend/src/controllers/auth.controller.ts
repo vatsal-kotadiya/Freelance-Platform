@@ -46,3 +46,34 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 export function getMe(req: Request, res: Response) {
   res.json({ user: req.user });
 }
+
+const forgotSchema = z.object({ email: z.string().email() });
+const resetSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(6),
+});
+
+export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = forgotSchema.parse(req.body);
+    await authService.requestPasswordReset(email);
+    // Always return 200 to avoid leaking whether the email exists
+    res.json({ message: 'If that email is registered, a reset link has been sent.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { token, password } = resetSchema.parse(req.body);
+    await authService.resetPassword(token, password);
+    res.json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    if ((err as Error).message === 'Invalid or expired reset token') {
+      res.status(400).json({ error: 'Invalid or expired reset token' });
+      return;
+    }
+    next(err);
+  }
+}
