@@ -1,0 +1,15 @@
+{
+  "name": "freelance-platform-(test-project)",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:studio": "cd backend && npm run db:studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

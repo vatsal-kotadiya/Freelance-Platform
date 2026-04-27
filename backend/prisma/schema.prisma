@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  FREELANCER
+}
+
+enum ProjectStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  RELEASED
+}
+
+enum NotificationType {
+  BID_PLACED
+  BID_ACCEPTED
+  NEW_MESSAGE
+  PROJECT_COMPLETED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime  @default(now())
+
+  bio        String?
+  skills     String[]
+  avatarUrl  String?
+  location   String?
+  hourlyRate Float?
+
+  projects           Project[]       @relation("ClientProjects")
+  bids               Bid[]           @relation("FreelancerBids")
+  sentMessages       Message[]       @relation("SentMessages")
+  clientPayments     Payment[]       @relation("ClientPayments")
+  freelancerPayments Payment[]       @relation("FreelancerPayments")
+  notifications      Notification[]
+  portfolioItems     PortfolioItem[]
+  reviewsGiven       Review[]        @relation("ReviewsGiven")
+  reviewsReceived    Review[]        @relation("ReviewsReceived")
+  uploadedFiles      FileAttachment[]
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  url         String?
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false)
+  relatedId String?
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  budget      Float
+  status      ProjectStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+
+  clientId String
+  client   User   @relation("ClientProjects", fields: [clientId], references: [id])
+
+  bids     Bid[]
+  messages Message[]
+  payment  Payment?
+  reviews  Review[]
+  files    FileAttachment[]
+}
+
+model FileAttachment {
+  id         String   @id @default(cuid())
+  filename   String
+  storedName String
+  mimeType   String
+  size       Int
+  createdAt  DateTime @default(now())
+
+  uploaderId String
+  uploader   User    @relation(fields: [uploaderId], references: [id])
+
+  projectId  String
+  project    Project @relation(fields: [projectId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  reviewerId String
+  reviewer   User   @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+
+  revieweeId String
+  reviewee   User   @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  @@unique([reviewerId, projectId])
+}
+
+model Bid {
+  id       String    @id @default(cuid())
+  amount   Float
+  proposal String
+  status   BidStatus @default(PENDING)
+  createdAt DateTime @default(now())
+
+  freelancerId String
+  freelancer   User    @relation("FreelancerBids", fields: [freelancerId], references: [id])
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  @@unique([freelancerId, projectId])
+}
+
+model Message {
+  id      String   @id @default(cuid())
+  content String
+  sentAt  DateTime @default(now())
+
+  senderId String
+  sender   User    @relation("SentMessages", fields: [senderId], references: [id])
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  amount    Float
+  status    PaymentStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id])
+
+  clientId String
+  client   User   @relation("ClientPayments", fields: [clientId], references: [id])
+
+  freelancerId String
+  freelancer   User   @relation("FreelancerPayments", fields: [freelancerId], references: [id])
+}
