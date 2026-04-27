@@ -15,10 +15,10 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 w-full max-w-sm text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+        <div className="w-full max-w-sm bg-white border border-gray-100 rounded-2xl shadow-sm p-8 text-center">
           <p className="text-red-600 text-sm mb-4">Invalid or missing reset token.</p>
-          <Link to="/forgot-password" className="text-indigo-600 hover:underline text-sm">
+          <Link to="/forgot-password" className="text-orange-500 hover:text-orange-600 font-semibold text-sm">
             Request a new reset link
           </Link>
         </div>
@@ -46,57 +46,72 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Set new password</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-2">
+          <Link to="/login" className="text-2xl font-extrabold text-gray-900 tracking-tight">
+            FreelanceHub<span className="text-orange-500">.</span>
+          </Link>
+        </div>
 
-        {success ? (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-800">
-                Password updated successfully. Redirecting to sign in…
-              </p>
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 mt-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Set new password</h1>
+
+          {success ? (
+            <div className="mt-5 space-y-4">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <p className="text-sm text-emerald-800">
+                  Password updated successfully. Redirecting to sign in…
+                </p>
+              </div>
+              <Link to="/login" className="block text-center text-sm text-orange-500 hover:text-orange-600 font-semibold">
+                Sign in now
+              </Link>
             </div>
-            <p className="text-sm text-gray-500 text-center">
-              <Link to="/login" className="text-indigo-600 hover:underline">Sign in now</Link>
-            </p>
-          </div>
-        ) : (
-          <>
-            {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
-                <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? 'Updating…' : 'Update password'}
-              </button>
-            </form>
-          </>
-        )}
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 mb-6 mt-1">Choose a strong password for your account.</p>
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">New password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="Min. 6 characters"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm password</label>
+                  <input
+                    type="password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="Re-enter password"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-orange-500 text-white py-2.5 rounded-full font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all shadow-sm"
+                >
+                  {loading ? 'Updating…' : 'Update password'}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

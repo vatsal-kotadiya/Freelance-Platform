@@ -9,23 +9,25 @@ export default function Pagination({ page, totalPages, total, onPageChange }: Pr
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between mt-6 text-sm">
-      <span className="text-gray-500">{total} result{total !== 1 ? 's' : ''}</span>
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between mt-8 text-sm">
+      <span className="text-gray-400 font-medium">{total} result{total !== 1 ? 's' : ''}</span>
+      <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           ← Prev
         </button>
-        <span className="text-gray-600">
-          Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages}</span>
+        <span className="px-3 py-2 text-gray-500">
+          <span className="font-semibold text-gray-900">{page}</span>
+          <span className="mx-1">/</span>
+          <span className="font-semibold text-gray-900">{totalPages}</span>
         </span>
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Next →
         </button>

@@ -36,11 +36,28 @@ export async function getOne(req: Request, res: Response, next: NextFunction) {
   } catch (err) { next(err); }
 }
 
+export async function suggestions(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = (req.query.q as string) || '';
+    const result = await projectService.getOpenProjectSuggestions(q);
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
+export async function mineSuggestions(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = (req.query.q as string) || '';
+    const suggestions = await projectService.getClientProjectSuggestions(req.user!.userId, q);
+    res.json(suggestions);
+  } catch (err) { next(err); }
+}
+
 export async function getMine(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-    const result = await projectService.getClientProjects(req.user!.userId, page, limit);
+    const search = (req.query.search as string) || '';
+    const result = await projectService.getClientProjects(req.user!.userId, page, limit, search);
     res.json(result);
   } catch (err) { next(err); }
 }

@@ -50,8 +50,46 @@ export async function getProjectById(id: string) {
   });
 }
 
-export async function getClientProjects(clientId: string, page = 1, limit = 10) {
-  const where = { clientId };
+export async function getOpenProjectSuggestions(q: string): Promise<string[]> {
+  if (!q.trim()) return [];
+  const rows = await prisma.project.findMany({
+    where: {
+      status: 'OPEN' as const,
+      title: { contains: q, mode: 'insensitive' },
+    },
+    select: { title: true },
+    orderBy: { createdAt: 'desc' },
+    take: 6,
+  });
+  return rows.map((r) => r.title);
+}
+
+export async function getClientProjectSuggestions(clientId: string, q: string): Promise<string[]> {
+  if (!q.trim()) return [];
+  const rows = await prisma.project.findMany({
+    where: {
+      clientId,
+      title: { contains: q, mode: 'insensitive' },
+    },
+    select: { title: true },
+    orderBy: { createdAt: 'desc' },
+    take: 6,
+  });
+  return rows.map((r) => r.title);
+}
+
+export async function getClientProjects(clientId: string, page = 1, limit = 10, search = '') {
+  const where = {
+    clientId,
+    ...(search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { description: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
 
   const [data, total] = await Promise.all([
     prisma.project.findMany({

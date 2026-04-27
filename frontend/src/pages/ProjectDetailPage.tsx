@@ -95,13 +95,11 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!project || !hasChat || !token) return;
-
     socket = io(import.meta.env.VITE_SOCKET_URL, { auth: { token } });
     socket.emit('joinRoom', id);
     socket.on('newMessage', (msg: any) => {
       setMessages((prev) => [...prev, msg]);
     });
-
     return () => { socket?.disconnect(); socket = null; };
   }, [project?.status, id, token]);
 
@@ -127,20 +125,14 @@ export default function ProjectDetailPage() {
     const cursor = messages[0].id;
     const container = chatContainerRef.current;
     const prevScrollHeight = container?.scrollHeight ?? 0;
-
     try {
       const res = await getMessages(id, cursor);
       setMessages((prev) => [...res.data, ...prev]);
       setHasMoreMessages(res.hasMore);
-      // Restore scroll position so the user sees where they were
       requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight - prevScrollHeight;
-        }
+        if (container) container.scrollTop = container.scrollHeight - prevScrollHeight;
       });
-    } catch {
-      // ignore
-    } finally {
+    } catch { /* ignore */ } finally {
       setLoadingEarlier(false);
     }
   }
@@ -214,17 +206,13 @@ export default function ProjectDetailPage() {
     try {
       await deleteFile(fileId);
       setProjectFiles((prev) => prev.filter((f) => f.id !== fileId));
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   async function handleDownload(fileId: string, filename: string) {
     try {
       await downloadFile(fileId, filename);
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   async function handleSubmitReview(e: FormEvent) {
@@ -244,12 +232,20 @@ export default function ProjectDetailPage() {
     }
   }
 
-  if (loading) return <Layout><p className="text-gray-500">Loading…</p></Layout>;
+  if (loading) return (
+    <Layout>
+      <div className="flex items-center justify-center h-48">
+        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    </Layout>
+  );
+
   if (fetchError || !project) return (
     <Layout>
-      <div className="text-center py-16">
-        <p className="text-red-600 mb-4">{fetchError || 'Project not found.'}</p>
-        <button onClick={() => window.history.back()} className="text-indigo-600 hover:underline text-sm">
+      <div className="text-center py-20">
+        <p className="text-5xl mb-4">🔍</p>
+        <p className="text-gray-600 mb-4">{fetchError || 'Project not found.'}</p>
+        <button onClick={() => window.history.back()} className="text-orange-500 hover:text-orange-600 font-semibold text-sm">
           ← Go back
         </button>
       </div>
@@ -258,22 +254,26 @@ export default function ProjectDetailPage() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-5">
+
         {/* Project Header */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{project.title}</h1>
-              <p className="text-gray-500 text-sm mt-1">Posted by {project.client.name}</p>
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{project.title}</h1>
+              <p className="text-gray-400 text-sm mt-1">Posted by <span className="text-gray-600 font-medium">{project.client.name}</span></p>
             </div>
             <StatusBadge status={project.status} />
           </div>
-          <p className="text-gray-700 mt-4">{project.description}</p>
-          <p className="text-lg font-semibold text-gray-800 mt-3">${project.budget.toLocaleString()}</p>
-
+          <p className="text-gray-600 mt-4 leading-relaxed text-sm">{project.description}</p>
+          <div className="flex items-center gap-4 mt-4">
+            <span className="text-2xl font-extrabold text-gray-900">${project.budget.toLocaleString()}</span>
+          </div>
           {isProjectOwner && project.status === 'IN_PROGRESS' && (
-            <button onClick={handleComplete}
-              className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700">
+            <button
+              onClick={handleComplete}
+              className="mt-4 bg-emerald-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-emerald-600 transition-all shadow-sm"
+            >
               Mark as Complete
             </button>
           )}
@@ -281,43 +281,52 @@ export default function ProjectDetailPage() {
 
         {/* Payment Status */}
         {payment && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-800">Payment</h2>
-                <p className="text-sm text-gray-500 mt-0.5">${payment.amount.toLocaleString()}</p>
+                <h2 className="font-bold text-gray-900">Payment</h2>
+                <p className="text-sm text-gray-400 mt-0.5">${payment.amount.toLocaleString()}</p>
               </div>
               <StatusBadge status={payment.status} />
             </div>
             {isProjectOwner && project.status === 'COMPLETED' && payment.status === 'PENDING' && (
-              <button onClick={handleReleasePayment}
-                className="mt-3 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">
+              <button
+                onClick={handleReleasePayment}
+                className="mt-4 bg-purple-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-600 transition-all shadow-sm"
+              >
                 Release Payment
               </button>
             )}
           </div>
         )}
 
-        {/* Bids Section (Client only) */}
+        {/* Bids Section (Client / Project Owner only) */}
         {isProjectOwner && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Bids ({bidsTotal})</h2>
-            {bids.length === 0 ? <p className="text-gray-500 text-sm">No bids yet.</p> : (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 className="font-bold text-gray-900 mb-4">
+              Bids
+              <span className="ml-2 text-xs font-semibold bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">{bidsTotal}</span>
+            </h2>
+            {bids.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No bids yet.</p>
+            ) : (
               <>
                 <div className="space-y-3">
                   {bids.map((b) => (
-                    <div key={b.id} className="border border-gray-100 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{b.freelancer.name}</p>
-                          <p className="text-sm text-gray-600 mt-1">{b.proposal}</p>
+                    <div key={b.id} className="border border-gray-100 rounded-xl p-4 hover:border-orange-100 transition-all">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 text-sm">{b.freelancer.name}</p>
+                          <p className="text-sm text-gray-500 mt-1 leading-relaxed">{b.proposal}</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-gray-800">${b.amount.toLocaleString()}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-bold text-gray-900 text-sm">${b.amount.toLocaleString()}</span>
                           <StatusBadge status={b.status} />
                           {b.status === 'PENDING' && project.status === 'OPEN' && (
-                            <button onClick={() => handleAcceptBid(b.id)}
-                              className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-indigo-700">
+                            <button
+                              onClick={() => handleAcceptBid(b.id)}
+                              className="bg-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-orange-600 transition-all"
+                            >
                               Accept
                             </button>
                           )}
@@ -326,66 +335,84 @@ export default function ProjectDetailPage() {
                     </div>
                   ))}
                 </div>
-                <Pagination
-                  page={bidsPage}
-                  totalPages={bidsTotalPages}
-                  total={bidsTotal}
-                  onPageChange={fetchBids}
-                />
+                <Pagination page={bidsPage} totalPages={bidsTotalPages} total={bidsTotal} onPageChange={fetchBids} />
               </>
             )}
           </div>
         )}
 
-        {/* Place Bid (Freelancer only, project open, no existing bid) */}
+        {/* Place Bid (Freelancer, open project, no existing bid) */}
         {!isClient && project.status === 'OPEN' && !myBid && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Place a Bid</h2>
-            {bidError && <p className="text-red-600 text-sm mb-3">{bidError}</p>}
-            <form onSubmit={handlePlaceBid} className="space-y-3">
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 className="font-bold text-gray-900 mb-4">Place a Bid</h2>
+            {bidError && (
+              <div className="mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <p className="text-red-600 text-sm">{bidError}</p>
+              </div>
+            )}
+            <form onSubmit={handlePlaceBid} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Your Bid Amount ($)</label>
-                <input type="number" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} required min="1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Bid Amount (USD)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                  <input
+                    type="number"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    required
+                    min="1"
+                    placeholder="500"
+                    className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Proposal</label>
-                <textarea value={bidProposal} onChange={(e) => setBidProposal(e.target.value)} required rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Proposal</label>
+                <textarea
+                  value={bidProposal}
+                  onChange={(e) => setBidProposal(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="Explain why you're the best fit for this project…"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all resize-none"
+                />
               </div>
-              <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+              <button
+                type="submit"
+                className="bg-orange-500 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-orange-600 transition-all shadow-sm"
+              >
                 Submit Bid
               </button>
             </form>
           </div>
         )}
 
+        {/* My Bid (Freelancer existing bid) */}
         {myBid && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h2 className="font-semibold text-gray-800 mb-2">Your Bid</h2>
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 className="font-bold text-gray-900 mb-3">Your Bid</h2>
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-gray-800">${myBid.amount.toLocaleString()}</span>
+              <span className="text-xl font-extrabold text-gray-900">${myBid.amount.toLocaleString()}</span>
               <StatusBadge status={myBid.status} />
             </div>
-            <p className="text-sm text-gray-600 mt-2">{myBid.proposal}</p>
+            <p className="text-sm text-gray-500 mt-2 leading-relaxed">{myBid.proposal}</p>
           </div>
         )}
 
-        {/* Review Section — only on completed projects */}
+        {/* Reviews — completed projects only */}
         {project.status === 'COMPLETED' && (() => {
           const theirReview = projectReviews.find((r) => r.reviewee?.id === user?.id) ?? null;
           return (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-5">
-              <h2 className="font-semibold text-gray-800">Reviews</h2>
+            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-5">
+              <h2 className="font-bold text-gray-900">Reviews</h2>
 
-              {/* Review received from the other party */}
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Review you received</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Review you received</p>
                 {theirReview ? (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <StarRating value={theirReview.rating} readonly size="sm" />
-                      <span className="text-xs text-gray-500">by {theirReview.reviewer.name}</span>
+                      <span className="text-xs text-gray-400">by {theirReview.reviewer.name}</span>
                     </div>
                     <p className="text-sm text-gray-700 leading-relaxed">{theirReview.comment}</p>
                     <p className="text-xs text-gray-400">{new Date(theirReview.createdAt).toLocaleDateString()}</p>
@@ -397,23 +424,22 @@ export default function ProjectDetailPage() {
 
               <div className="border-t border-gray-100" />
 
-              {/* Review the current user wrote */}
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your review</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Your review</p>
                 {myReview ? (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <StarRating value={myReview.rating} readonly size="sm" />
                     <p className="text-sm text-gray-700 leading-relaxed">{myReview.comment}</p>
                     <p className="text-xs text-gray-400">{new Date(myReview.createdAt).toLocaleDateString()}</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmitReview} className="space-y-3">
+                  <form onSubmit={handleSubmitReview} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Rating</label>
                       <StarRating value={reviewRating} onChange={setReviewRating} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Comment</label>
                       <textarea
                         required
                         rows={3}
@@ -421,14 +447,14 @@ export default function ProjectDetailPage() {
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
                         placeholder="Share your experience working on this project…"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all resize-none"
                       />
                     </div>
-                    {reviewError && <p className="text-sm text-red-600">{reviewError}</p>}
+                    {reviewError && <p className="text-sm text-red-500">{reviewError}</p>}
                     <button
                       type="submit"
                       disabled={reviewLoading}
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                      className="bg-orange-500 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all shadow-sm"
                     >
                       {reviewLoading ? 'Submitting…' : 'Submit Review'}
                     </button>
@@ -441,15 +467,15 @@ export default function ProjectDetailPage() {
 
         {/* Project Files */}
         {hasFiles && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">Project Files</h2>
-              <label className={`text-sm px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+              <h2 className="font-bold text-gray-900">Project Files</h2>
+              <label className={`text-sm px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all ${
                 fileUploading
                   ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50'
+                  : 'text-orange-500 border-orange-200 hover:bg-orange-50'
               }`}>
-                {fileUploading ? 'Uploading…' : '+ Upload File'}
+                {fileUploading ? 'Uploading…' : '+ Upload'}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -459,30 +485,37 @@ export default function ProjectDetailPage() {
                 />
               </label>
             </div>
-            {fileError && <p className="text-sm text-red-600 mb-3">{fileError}</p>}
+            {fileError && <p className="text-sm text-red-500 mb-3">{fileError}</p>}
             {projectFiles.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">No files uploaded yet.</p>
+              <p className="text-sm text-gray-400 text-center py-6">No files uploaded yet.</p>
             ) : (
               <div className="space-y-2">
                 {projectFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-lg px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{f.filename}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {(f.size / 1024).toFixed(1)} KB · {f.uploader.name} · {new Date(f.createdAt).toLocaleDateString()}
-                      </p>
+                  <div key={f.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3 hover:border-orange-100 transition-all">
+                    <div className="min-w-0 flex items-center gap-3">
+                      <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 truncate">{f.filename}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {(f.size / 1024).toFixed(1)} KB · {f.uploader.name} · {new Date(f.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handleDownload(f.id, f.filename)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                        className="text-xs text-orange-500 hover:text-orange-600 px-3 py-1.5 rounded-full hover:bg-orange-50 font-semibold transition-all"
                       >
                         Download
                       </button>
                       {f.uploader.id === user?.id && (
                         <button
                           onClick={() => handleDeleteFile(f.id)}
-                          className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                          className="text-xs text-red-400 hover:text-red-600 px-3 py-1.5 rounded-full hover:bg-red-50 font-semibold transition-all"
                         >
                           Delete
                         </button>
@@ -497,30 +530,35 @@ export default function ProjectDetailPage() {
 
         {/* Chat */}
         {hasChat && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Project Chat</h2>
-            <div ref={chatContainerRef} className="h-72 overflow-y-auto space-y-2 border border-gray-100 rounded-lg p-3 mb-3 bg-gray-50">
-              {/* Load Earlier */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 className="font-bold text-gray-900 mb-4">Project Chat</h2>
+            <div
+              ref={chatContainerRef}
+              className="h-72 overflow-y-auto space-y-3 bg-gray-50 border border-gray-100 rounded-xl p-4 mb-3"
+            >
               {hasMoreMessages && (
                 <div className="flex justify-center pb-2">
                   <button
                     onClick={handleLoadEarlier}
                     disabled={loadingEarlier}
-                    className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                    className="text-xs text-orange-500 hover:text-orange-600 font-semibold disabled:opacity-50"
                   >
                     {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
                   </button>
                 </div>
               )}
-
               {messages.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center mt-8">No messages yet. Start the conversation!</p>
+                <p className="text-gray-400 text-sm text-center mt-10">No messages yet. Start the conversation!</p>
               ) : messages.map((m) => {
                 const isMe = m.sender.id === user?.id;
                 return (
                   <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <span className="text-xs text-gray-400 mb-0.5">{m.sender.name}</span>
-                    <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${isMe ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                    <span className="text-xs text-gray-400 mb-1">{m.sender.name}</span>
+                    <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      isMe
+                        ? 'bg-orange-500 text-white rounded-br-sm'
+                        : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+                    }`}>
                       {m.content}
                     </div>
                   </div>
@@ -529,14 +567,22 @@ export default function ProjectDetailPage() {
               <div ref={messagesEndRef} />
             </div>
             <form onSubmit={sendMessage} className="flex gap-2">
-              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message…"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type a message…"
+                className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
+              />
+              <button
+                type="submit"
+                className="bg-orange-500 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-orange-600 transition-all shadow-sm"
+              >
                 Send
               </button>
             </form>
           </div>
         )}
+
       </div>
     </Layout>
   );

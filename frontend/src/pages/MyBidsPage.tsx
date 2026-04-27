@@ -35,26 +35,47 @@ export default function MyBidsPage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">My Bids</h1>
+      <div className="mb-8">
+        <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Freelancer</p>
+        <h1 className="text-3xl font-extrabold text-gray-900">My Bids</h1>
+      </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading…</p>
+        <div className="flex items-center justify-center h-48">
+          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        </div>
       ) : bids.length === 0 ? (
-        <p className="text-gray-500">No bids yet. <Link to="/projects" className="text-indigo-600 hover:underline">Browse projects</Link>.</p>
+        <div className="bg-white border border-gray-100 rounded-2xl p-12 text-center shadow-sm">
+          <p className="text-4xl mb-3">💼</p>
+          <p className="text-gray-500 text-sm mb-4">No bids yet.</p>
+          <Link
+            to="/projects"
+            className="inline-block bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition-all"
+          >
+            Browse open projects
+          </Link>
+        </div>
       ) : (
         <div className="space-y-3">
           {bids.map((b) => (
-            <Link key={b.id} to={`/projects/${b.project.id}`}
-              className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900">{b.project.title}</h2>
-                <div className="flex gap-2">
+            <Link
+              key={b.id}
+              to={`/projects/${b.project.id}`}
+              className="block bg-white border border-gray-100 rounded-2xl px-5 py-4 hover:border-orange-200 hover:shadow-sm transition-all group"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors truncate">{b.project.title}</h2>
+                  <p className="text-sm text-gray-500 mt-1 line-clamp-1">{b.proposal}</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Your bid: <span className="font-bold text-gray-700">${b.amount.toLocaleString()}</span>
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
                   <StatusBadge status={b.status} />
                   <StatusBadge status={b.project.status} />
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mt-1">{b.proposal}</p>
-              <p className="text-sm text-gray-500 mt-1">Your bid: <strong>${b.amount.toLocaleString()}</strong></p>
             </Link>
           ))}
         </div>

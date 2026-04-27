@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { roleGuard } from '../middleware/roleGuard';
-import { create, list, getOne, getMine, update, complete } from '../controllers/project.controller';
+import { create, list, getOne, getMine, suggestions, mineSuggestions, update, complete } from '../controllers/project.controller';
 import { listForProject } from '../controllers/bid.controller';
 import { getHistory } from '../controllers/message.controller';
 
@@ -9,7 +9,9 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.get('/suggestions', suggestions);
 router.get('/', list);
+router.get('/mine/suggestions', roleGuard('CLIENT'), mineSuggestions);
 router.get('/mine', roleGuard('CLIENT'), getMine);
 router.post('/', roleGuard('CLIENT'), create);
 router.get('/:id', getOne);

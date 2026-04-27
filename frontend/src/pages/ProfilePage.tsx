@@ -27,34 +27,24 @@ export default function ProfilePage() {
 
   const isOwner = user?.id === userId;
 
-  // Edit form state
   const [editForm, setEditForm] = useState<UpdateProfilePayload>({});
   const [skillInput, setSkillInput] = useState('');
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
 
-  // Portfolio add form state
   const [portfolioForm, setPortfolioForm] = useState({ title: '', description: '', url: '' });
   const [portfolioError, setPortfolioError] = useState('');
   const [portfolioLoading, setPortfolioLoading] = useState(false);
 
-  // Portfolio inline edit state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemEditForm, setItemEditForm] = useState({ title: '', description: '', url: '' });
   const [itemEditError, setItemEditError] = useState('');
   const [itemEditLoading, setItemEditLoading] = useState(false);
 
   useEffect(() => {
-    if (!userId) {
-      navigate('/dashboard');
-      return;
-    }
-    getProfile(userId)
-      .then(setProfile)
-      .catch(() => setError('Profile not found'));
-    getReviewsForUser(userId)
-      .then(setReviewsData)
-      .catch(() => {});
+    if (!userId) { navigate('/dashboard'); return; }
+    getProfile(userId).then(setProfile).catch(() => setError('Profile not found'));
+    getReviewsForUser(userId).then(setReviewsData).catch(() => {});
   }, [userId]);
 
   function openEdit() {
@@ -94,7 +84,6 @@ export default function ProfilePage() {
       if (editForm.avatarUrl !== undefined) payload.avatarUrl = editForm.avatarUrl;
       if (editForm.location !== undefined) payload.location = editForm.location;
       payload.hourlyRate = editForm.hourlyRate ?? null;
-
       const updated = await updateProfile(payload);
       setProfile(updated);
       setEditing(false);
@@ -132,9 +121,7 @@ export default function ProfilePage() {
     try {
       await deletePortfolioItem(id);
       setProfile((p) => p ? { ...p, portfolioItems: p.portfolioItems.filter((i) => i.id !== id) } : p);
-    } catch {
-      // silently ignore
-    }
+    } catch { /* ignore */ }
   }
 
   function openItemEdit(item: { id: string; title: string; description: string; url?: string | null }) {
@@ -172,64 +159,68 @@ export default function ProfilePage() {
     }
   }
 
-  if (error) {
-    return (
-      <Layout>
-        <p className="text-red-600">{error}</p>
-      </Layout>
-    );
-  }
+  if (error) return <Layout><p className="text-red-500 text-sm">{error}</p></Layout>;
 
-  if (!profile) {
-    return <Layout><p className="text-gray-500">Loading…</p></Layout>;
-  }
+  if (!profile) return (
+    <Layout>
+      <div className="flex items-center justify-center h-48">
+        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    </Layout>
+  );
 
   const initials = profile.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-5">
 
-        {/* Profile Header Card */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
+        {/* Profile Header */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
           <div className="flex items-start gap-5">
             {/* Avatar */}
             {profile.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
                 alt={profile.name}
-                className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 shadow-sm"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl font-bold text-indigo-600">{initials}</span>
+              <div className="w-20 h-20 rounded-2xl bg-orange-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <span className="text-2xl font-extrabold text-orange-500">{initials}</span>
               </div>
             )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-gray-900">{profile.name}</h1>
-                <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-medium">
+                <h1 className="text-2xl font-extrabold text-gray-900">{profile.name}</h1>
+                <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 px-2.5 py-1 rounded-full font-semibold">
                   {profile.role}
                 </span>
               </div>
 
-              {profile.location && (
-                <p className="text-sm text-gray-500 mt-1">📍 {profile.location}</p>
-              )}
-              {profile.role === 'FREELANCER' && profile.hourlyRate != null && (
-                <p className="text-sm text-gray-500 mt-1">💰 ${profile.hourlyRate}/hr</p>
-              )}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                {profile.location && (
+                  <p className="text-sm text-gray-500 flex items-center gap-1">
+                    <span>📍</span>{profile.location}
+                  </p>
+                )}
+                {profile.role === 'FREELANCER' && profile.hourlyRate != null && (
+                  <p className="text-sm text-gray-500 flex items-center gap-1">
+                    <span>💰</span>${profile.hourlyRate}/hr
+                  </p>
+                )}
+              </div>
+
               {profile.bio && (
-                <p className="text-gray-700 mt-3 text-sm leading-relaxed">{profile.bio}</p>
+                <p className="text-gray-600 mt-3 text-sm leading-relaxed">{profile.bio}</p>
               )}
 
-              {/* Skills */}
               {profile.skills.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {profile.skills.map((skill) => (
-                    <span key={skill} className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">
+                    <span key={skill} className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium">
                       {skill}
                     </span>
                   ))}
@@ -240,55 +231,55 @@ export default function ProfilePage() {
             {isOwner && !editing && (
               <button
                 onClick={openEdit}
-                className="flex-shrink-0 text-sm text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                className="flex-shrink-0 text-sm text-orange-500 border border-orange-200 px-4 py-2 rounded-full font-semibold hover:bg-orange-50 transition-all"
               >
-                Edit Profile
+                Edit
               </button>
             )}
           </div>
 
-          {/* Inline Edit Form */}
+          {/* Edit Form */}
           {editing && isOwner && (
             <div className="mt-6 border-t border-gray-100 pt-5 space-y-4">
-              <h2 className="font-semibold text-gray-800">Edit Profile</h2>
+              <h2 className="font-bold text-gray-900">Edit Profile</h2>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Avatar URL</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Avatar URL</label>
                 <input
                   type="url"
                   placeholder="https://example.com/photo.jpg"
                   value={editForm.avatarUrl ?? ''}
                   onChange={(e) => setEditForm((f) => ({ ...f, avatarUrl: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Bio</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bio</label>
                 <textarea
                   rows={3}
                   maxLength={500}
                   placeholder="Tell others about yourself…"
                   value={editForm.bio ?? ''}
                   onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Location</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Location</label>
                 <input
                   type="text"
                   placeholder="e.g. New York, USA"
                   value={editForm.location ?? ''}
                   onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                 />
               </div>
 
               {profile.role === 'FREELANCER' && (
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Hourly Rate (USD)</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hourly Rate (USD)</label>
                   <input
                     type="number"
                     min={1}
@@ -300,53 +291,53 @@ export default function ProfilePage() {
                         hourlyRate: e.target.value ? parseFloat(e.target.value) : null,
                       }))
                     }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Skills</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Skills</label>
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
-                    placeholder="Add a skill"
+                    placeholder="Add a skill and press Enter"
                     value={skillInput}
                     onChange={(e) => setSkillInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                   />
                   <button
                     type="button"
                     onClick={addSkill}
-                    className="text-sm bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700"
+                    className="text-sm bg-orange-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-orange-600 transition-all"
                   >
                     Add
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(editForm.skills ?? []).map((skill) => (
-                    <span key={skill} className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <span key={skill} className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium flex items-center gap-1">
                       {skill}
-                      <button onClick={() => removeSkill(skill)} className="text-gray-400 hover:text-red-500 ml-0.5">×</button>
+                      <button onClick={() => removeSkill(skill)} className="text-gray-400 hover:text-red-500 ml-0.5 leading-none">×</button>
                     </span>
                   ))}
                 </div>
               </div>
 
-              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              {editError && <p className="text-sm text-red-500">{editError}</p>}
 
               <div className="flex gap-3">
                 <button
                   onClick={handleSaveProfile}
                   disabled={editLoading}
-                  className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="bg-orange-500 text-white text-sm px-5 py-2.5 rounded-full font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all"
                 >
                   {editLoading ? 'Saving…' : 'Save Changes'}
                 </button>
                 <button
                   onClick={() => setEditing(false)}
-                  className="text-sm text-gray-600 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                  className="text-sm text-gray-600 px-5 py-2.5 rounded-full border border-gray-200 font-semibold hover:bg-gray-50 transition-all"
                 >
                   Cancel
                 </button>
@@ -355,67 +346,66 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Portfolio Section */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Portfolio</h2>
+        {/* Portfolio */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold text-gray-900">Portfolio</h2>
             {isOwner && !showPortfolioForm && (
               <button
                 onClick={() => setShowPortfolioForm(true)}
-                className="text-sm text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                className="text-sm text-orange-500 border border-orange-200 px-4 py-2 rounded-full font-semibold hover:bg-orange-50 transition-all"
               >
                 + Add Item
               </button>
             )}
           </div>
 
-          {/* Add Portfolio Form */}
           {showPortfolioForm && isOwner && (
             <div className="border border-gray-100 rounded-xl p-4 mb-4 bg-gray-50 space-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Title *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title *</label>
                 <input
                   type="text"
                   placeholder="Project name"
                   maxLength={100}
                   value={portfolioForm.title}
                   onChange={(e) => setPortfolioForm((f) => ({ ...f, title: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Description *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description *</label>
                 <textarea
                   rows={2}
                   maxLength={500}
                   placeholder="What did you build?"
                   value={portfolioForm.description}
                   onChange={(e) => setPortfolioForm((f) => ({ ...f, description: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent resize-none bg-white transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">URL (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">URL (optional)</label>
                 <input
                   type="url"
                   placeholder="https://github.com/…"
                   value={portfolioForm.url}
                   onChange={(e) => setPortfolioForm((f) => ({ ...f, url: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                 />
               </div>
-              {portfolioError && <p className="text-sm text-red-600">{portfolioError}</p>}
+              {portfolioError && <p className="text-sm text-red-500">{portfolioError}</p>}
               <div className="flex gap-3">
                 <button
                   onClick={handleAddPortfolio}
                   disabled={portfolioLoading}
-                  className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="bg-orange-500 text-white text-sm px-5 py-2 rounded-full font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all"
                 >
                   {portfolioLoading ? 'Adding…' : 'Add'}
                 </button>
                 <button
                   onClick={() => { setShowPortfolioForm(false); setPortfolioError(''); }}
-                  className="text-sm text-gray-600 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                  className="text-sm text-gray-600 px-5 py-2 rounded-full border border-gray-200 font-semibold hover:bg-gray-50 transition-all"
                 >
                   Cancel
                 </button>
@@ -424,7 +414,7 @@ export default function ProfilePage() {
           )}
 
           {profile.portfolioItems.length === 0 && !showPortfolioForm && (
-            <p className="text-sm text-gray-400 text-center py-4">
+            <p className="text-sm text-gray-400 text-center py-6">
               {isOwner ? 'Add your first portfolio item.' : 'No portfolio items yet.'}
             </p>
           )}
@@ -432,83 +422,83 @@ export default function ProfilePage() {
           <div className="space-y-3">
             {profile.portfolioItems.map((item) =>
               editingItemId === item.id ? (
-                <div key={item.id} className="border border-indigo-200 rounded-xl p-4 bg-indigo-50/30 space-y-3">
+                <div key={item.id} className="border border-orange-200 rounded-xl p-4 bg-orange-50/30 space-y-3">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Title *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title *</label>
                     <input
                       type="text"
                       maxLength={100}
                       value={itemEditForm.title}
                       onChange={(e) => setItemEditForm((f) => ({ ...f, title: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Description *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description *</label>
                     <textarea
                       rows={2}
                       maxLength={500}
                       value={itemEditForm.description}
                       onChange={(e) => setItemEditForm((f) => ({ ...f, description: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent resize-none bg-white transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">URL (optional)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">URL (optional)</label>
                     <input
                       type="url"
                       placeholder="https://github.com/…"
                       value={itemEditForm.url}
                       onChange={(e) => setItemEditForm((f) => ({ ...f, url: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
                     />
                   </div>
-                  {itemEditError && <p className="text-sm text-red-600">{itemEditError}</p>}
+                  {itemEditError && <p className="text-sm text-red-500">{itemEditError}</p>}
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleSaveItem(item.id)}
                       disabled={itemEditLoading}
-                      className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                      className="bg-orange-500 text-white text-sm px-5 py-2 rounded-full font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all"
                     >
                       {itemEditLoading ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       onClick={cancelItemEdit}
-                      className="text-sm text-gray-600 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                      className="text-sm text-gray-600 px-5 py-2 rounded-full border border-gray-200 font-semibold hover:bg-gray-50 transition-all"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div key={item.id} className="border border-gray-100 rounded-xl p-4 flex items-start justify-between gap-3">
+                <div key={item.id} className="border border-gray-100 rounded-xl p-4 flex items-start justify-between gap-3 hover:border-orange-100 transition-all">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-gray-900 text-sm">{item.title}</h3>
+                      <h3 className="font-semibold text-gray-900 text-sm">{item.title}</h3>
                       {item.url && (
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-indigo-600 hover:underline truncate max-w-xs"
+                          className="text-xs text-orange-500 hover:underline truncate max-w-xs"
                         >
                           {item.url}
                         </a>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">{item.description}</p>
+                    <p className="text-sm text-gray-500 mt-1 leading-relaxed">{item.description}</p>
                   </div>
                   {isOwner && (
-                    <div className="flex flex-col gap-1 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => openItemEdit(item)}
-                        className="text-xs text-indigo-500 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                        className="text-xs text-orange-500 hover:text-orange-600 px-3 py-1.5 rounded-full hover:bg-orange-50 font-semibold transition-all"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeletePortfolio(item.id)}
-                        className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        className="text-xs text-red-400 hover:text-red-600 px-3 py-1.5 rounded-full hover:bg-red-50 font-semibold transition-all"
                       >
                         Remove
                       </button>
@@ -520,14 +510,14 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Reviews Section */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Reviews</h2>
+        {/* Reviews */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-5">
+            <h2 className="text-lg font-bold text-gray-900">Reviews</h2>
             {reviewsData && reviewsData.totalReviews > 0 && (
               <div className="flex items-center gap-2">
                 <StarRating value={Math.round(reviewsData.averageRating ?? 0)} readonly size="sm" />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-500 font-medium">
                   {reviewsData.averageRating?.toFixed(1)} · {reviewsData.totalReviews} review{reviewsData.totalReviews !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -535,7 +525,7 @@ export default function ProfilePage() {
           </div>
 
           {!reviewsData || reviewsData.totalReviews === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No reviews yet.</p>
+            <p className="text-sm text-gray-400 text-center py-6">No reviews yet.</p>
           ) : (
             <div className="space-y-4">
               {reviewsData.reviews.map((r) => (
@@ -543,18 +533,16 @@ export default function ProfilePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-900">{r.reviewer.name}</span>
-                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{r.reviewer.role}</span>
+                        <span className="text-sm font-semibold text-gray-900">{r.reviewer.name}</span>
+                        <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full font-medium">{r.reviewer.role}</span>
                         {r.project && (
                           <span className="text-xs text-gray-400 truncate max-w-xs">on "{r.project.title}"</span>
                         )}
                       </div>
                       <StarRating value={r.rating} readonly size="sm" />
-                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">{r.comment}</p>
+                      <p className="text-sm text-gray-600 mt-1 leading-relaxed">{r.comment}</p>
                     </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
-                      {new Date(r.createdAt).toLocaleDateString()}
-                    </span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))}
