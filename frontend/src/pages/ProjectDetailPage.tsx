@@ -65,6 +65,10 @@ export default function ProjectDetailPage() {
   const [reviewError, setReviewError] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
 
+  // Panel toggles
+  const [showReviews, setShowReviews] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+
   // Delivery state
   const [deliveryUploading, setDeliveryUploading] = useState(false);
   const [deliveryError, setDeliveryError] = useState('');
@@ -136,6 +140,12 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (chatOpen) {
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    }
+  }, [chatOpen]);
 
   async function handleLoadEarlier() {
     if (!id || messages.length === 0) return;
@@ -349,6 +359,41 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-4 mt-4">
             <span className="text-2xl font-extrabold text-gray-900">${project.budget.toLocaleString()}</span>
           </div>
+
+          {(project.status === 'COMPLETED' || hasChat) && (
+            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-gray-100 flex-wrap">
+              {project.status === 'COMPLETED' && (
+                <button
+                  onClick={() => setShowReviews((v) => !v)}
+                  className={`inline-flex items-center gap-2 text-sm px-4 py-1.5 rounded-full font-semibold border transition-all ${
+                    showReviews
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      : 'text-gray-600 border-gray-200 hover:border-orange-300 hover:text-orange-500 bg-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill={showReviews ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                  Reviews
+                </button>
+              )}
+              {hasChat && (
+                <button
+                  onClick={() => setChatOpen((v) => !v)}
+                  className={`inline-flex items-center gap-2 text-sm px-4 py-1.5 rounded-full font-semibold border transition-all ${
+                    chatOpen
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      : 'text-gray-600 border-gray-200 hover:border-orange-300 hover:text-orange-500 bg-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Project Chat
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Project Delivery (client uploads completed project) ──────────────── */}
@@ -649,8 +694,8 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* ── Reviews (completed projects only) ────────────────────────────────── */}
-        {project.status === 'COMPLETED' && (() => {
+        {/* ── Reviews (toggle, completed projects only) ───────────────────────── */}
+        {showReviews && project.status === 'COMPLETED' && (() => {
           const theirReview = projectReviews.find((r) => r.reviewee?.id === user?.id) ?? null;
           return (
             <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-5">
@@ -715,62 +760,96 @@ export default function ProjectDetailPage() {
           );
         })()}
 
-        {/* ── Chat ──────────────────────────────────────────────────────────────── */}
-        {hasChat && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <h2 className="font-bold text-gray-900 mb-4">Project Chat</h2>
-            <div
-              ref={chatContainerRef}
-              className="h-72 overflow-y-auto space-y-3 bg-gray-50 border border-gray-100 rounded-xl p-4 mb-3"
-            >
-              {hasMoreMessages && (
-                <div className="flex justify-center pb-2">
-                  <button
-                    onClick={handleLoadEarlier}
-                    disabled={loadingEarlier}
-                    className="text-xs text-orange-500 hover:text-orange-600 font-semibold disabled:opacity-50"
-                  >
-                    {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
-                  </button>
-                </div>
-              )}
-              {messages.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center mt-10">No messages yet. Start the conversation!</p>
-              ) : messages.map((m) => {
-                const isMe = m.sender.id === user?.id;
-                return (
-                  <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <span className="text-xs text-gray-400 mb-1">{m.sender.name}</span>
-                    <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      isMe
-                        ? 'bg-orange-500 text-white rounded-br-sm'
-                        : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
-                    }`}>
-                      {m.content}
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-            <form onSubmit={sendMessage} className="flex gap-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type a message…"
-                className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
-              />
-              <button
-                type="submit"
-                className="bg-orange-500 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-orange-600 transition-all shadow-sm"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-        )}
-
       </div>
+
+      {/* ── Floating Chat Panel ───────────────────────────────────────────────── */}
+      {hasChat && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${
+            chatOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
+          }`}
+          style={{ maxHeight: '480px' }}
+        >
+          {/* Chat header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-orange-500 rounded-t-2xl flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 bg-white rounded-full opacity-80 flex-shrink-0" />
+              <span className="text-white font-semibold text-sm truncate">Project Chat</span>
+            </div>
+            <button
+              onClick={() => setChatOpen(false)}
+              className="text-white hover:bg-orange-600 w-7 h-7 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ml-2"
+              aria-label="Close chat"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-3"
+            style={{ maxHeight: '320px', minHeight: '200px' }}
+          >
+            {hasMoreMessages && (
+              <div className="flex justify-center pb-1">
+                <button
+                  onClick={handleLoadEarlier}
+                  disabled={loadingEarlier}
+                  className="text-xs text-orange-500 hover:text-orange-600 font-semibold disabled:opacity-50"
+                >
+                  {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
+                </button>
+              </div>
+            )}
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-center">
+                <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-gray-400 text-sm">No messages yet.</p>
+                <p className="text-gray-300 text-xs mt-0.5">Start the conversation!</p>
+              </div>
+            ) : messages.map((m) => {
+              const isMe = m.sender.id === user?.id;
+              return (
+                <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <span className="text-xs text-gray-400 mb-1">{m.sender.name}</span>
+                  <div className={`max-w-[200px] px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
+                    isMe
+                      ? 'bg-orange-500 text-white rounded-br-sm'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                  }`}>
+                    {m.content}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <form onSubmit={sendMessage} className="flex items-center gap-2 px-3 py-3 border-t border-gray-100 flex-shrink-0">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Type a message…"
+              className="flex-1 border border-gray-200 rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white transition-all"
+            />
+            <button
+              type="submit"
+              className="bg-orange-500 text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-orange-600 transition-all shadow-sm flex-shrink-0"
+              aria-label="Send"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </form>
+        </div>
+      )}
     </Layout>
   );
 }

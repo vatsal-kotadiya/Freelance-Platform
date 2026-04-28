@@ -92,12 +92,13 @@ model Notification {
 }
 
 model Project {
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  budget      Float
-  status      ProjectStatus @default(OPEN)
-  createdAt   DateTime      @default(now())
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  budget       Float
+  status       ProjectStatus @default(OPEN)
+  sampleImages String[]
+  createdAt    DateTime      @default(now())
 
   clientId String
   client   User   @relation("ClientProjects", fields: [clientId], references: [id])

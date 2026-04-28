@@ -1,22 +1,80 @@
-import { useState, FormEvent } from 'react';
+import { useState, useRef, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createProject } from '../api/projects';
 import Layout from '../components/Layout';
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
+const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png'];
+const MAX_SIZE = 5 * 1024 * 1024;
+const MAX_COUNT = 5;
+
+interface ImageEntry {
+  file: File;
+  preview: string;
+}
 
 export default function CreateProjectPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
+  const [images, setImages] = useState<ImageEntry[]>([]);
+  const [imageError, setImageError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setImageError('');
+    const selected = Array.from(e.target.files ?? []);
+    if (!selected.length) return;
+
+    const remaining = MAX_COUNT - images.length;
+    if (remaining <= 0) {
+      setImageError(`Maximum ${MAX_COUNT} images allowed.`);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+
+    const toAdd: ImageEntry[] = [];
+    for (const file of selected.slice(0, remaining)) {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTS.includes(ext)) {
+        setImageError('Only JPG and PNG images are allowed.');
+        break;
+      }
+      if (file.size > MAX_SIZE) {
+        setImageError(`"${file.name}" exceeds the 5 MB limit.`);
+        break;
+      }
+      toAdd.push({ file, preview: URL.createObjectURL(file) });
+    }
+
+    if (toAdd.length) setImages((prev) => [...prev, ...toAdd]);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+    setImageError('');
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (imageError) return;
     setError('');
     setLoading(true);
     try {
-      const project = await createProject({ title, description, budget: Number(budget) });
+      const project = await createProject({
+        title,
+        description,
+        budget: Number(budget),
+        images: images.map((e) => e.file),
+      });
+      images.forEach((e) => URL.revokeObjectURL(e.preview));
       navigate(`/projects/${project.id}`);
     } catch (err: any) {
       setError(err.response?.data?.error ?? 'Failed to create project');
@@ -41,6 +99,7 @@ export default function CreateProjectPage() {
         )}
 
         <form onSubmit={handleSubmit} className="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm space-y-5">
+          {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Project Title</label>
             <input
@@ -52,6 +111,7 @@ export default function CreateProjectPage() {
             />
           </div>
 
+          {/* Description */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
             <textarea
@@ -64,6 +124,67 @@ export default function CreateProjectPage() {
             />
           </div>
 
+          {/* Sample Images */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-semibold text-gray-700">
+                Sample Images
+                <span className="ml-1.5 text-xs font-normal text-gray-400">(optional · up to 5)</span>
+              </label>
+              {images.length > 0 && (
+                <span className="text-xs text-gray-400">{images.length}/{MAX_COUNT}</span>
+              )}
+            </div>
+
+            {/* Preview grid */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {images.map((entry, i) => (
+                  <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200">
+                    <img
+                      src={entry.preview}
+                      alt={`preview-${i}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
+                      aria-label="Remove image"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload button */}
+            {images.length < MAX_COUNT && (
+              <label className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full border border-orange-200 text-orange-500 font-semibold cursor-pointer hover:bg-orange-50 transition-all">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Images
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageChange}
+                />
+              </label>
+            )}
+
+            {imageError ? (
+              <p className="mt-2 text-xs text-red-500">{imageError}</p>
+            ) : (
+              <p className="mt-2 text-xs text-gray-400">JPG, PNG · Max 5 MB per image</p>
+            )}
+          </div>
+
+          {/* Budget */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Budget (USD)</label>
             <div className="relative">
@@ -82,7 +203,7 @@ export default function CreateProjectPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!imageError}
             className="w-full bg-orange-500 text-white py-3 rounded-full font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all shadow-sm hover:shadow-md mt-2"
           >
             {loading ? 'Posting…' : 'Post Project'}

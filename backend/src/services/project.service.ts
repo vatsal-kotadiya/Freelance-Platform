@@ -2,9 +2,9 @@ import { NotificationType, ProjectStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { createNotification } from './notification.service';
 
-export async function createProject(clientId: string, title: string, description: string, budget: number) {
+export async function createProject(clientId: string, title: string, description: string, budget: number, sampleImages: string[] = []) {
   return prisma.project.create({
-    data: { title, description, budget, clientId },
+    data: { title, description, budget, clientId, sampleImages },
     include: { client: { select: { id: true, name: true } } },
   });
 }

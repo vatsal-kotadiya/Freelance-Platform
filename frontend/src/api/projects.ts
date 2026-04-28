@@ -16,8 +16,14 @@ export const getMyProjects = (page = 1, limit = 10, search = ''): Promise<Pagina
   api.get('/projects/mine', { params: { page, limit, search } }).then((r) => r.data);
 export const getMyProjectSuggestions = (q: string): Promise<string[]> =>
   api.get('/projects/mine/suggestions', { params: { q } }).then((r) => r.data);
-export const createProject = (data: { title: string; description: string; budget: number }) =>
-  api.post('/projects', data).then((r) => r.data);
+export const createProject = (data: { title: string; description: string; budget: number; images?: File[] }) => {
+  const form = new FormData();
+  form.append('title', data.title);
+  form.append('description', data.description);
+  form.append('budget', String(data.budget));
+  (data.images ?? []).forEach((img) => form.append('sampleImages', img));
+  return api.post('/projects', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+};
 export const updateProject = (id: string, data: Partial<{ title: string; description: string; budget: number }>) =>
   api.put(`/projects/${id}`, data).then((r) => r.data);
 export const completeProject = (id: string) => api.patch(`/projects/${id}/complete`).then((r) => r.data);

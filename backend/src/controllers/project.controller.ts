@@ -5,7 +5,7 @@ import * as projectService from '../services/project.service';
 const createSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
-  budget: z.number().positive(),
+  budget: z.coerce.number().positive(),
 });
 
 const updateSchema = createSchema.partial();
@@ -13,7 +13,9 @@ const updateSchema = createSchema.partial();
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
     const data = createSchema.parse(req.body);
-    const project = await projectService.createProject(req.user!.userId, data.title, data.description, data.budget);
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    const sampleImages = files.map((f) => f.filename);
+    const project = await projectService.createProject(req.user!.userId, data.title, data.description, data.budget, sampleImages);
     res.status(201).json(project);
   } catch (err) { next(err); }
 }
