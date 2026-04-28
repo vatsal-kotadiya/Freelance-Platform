@@ -16,9 +16,29 @@ const storage = multer.diskStorage({
   },
 });
 
-const FILE_SIZE_LIMIT = 200 * 1024 * 1024; // 200 MB
-
 export const upload = multer({
   storage,
-  limits: { fileSize: FILE_SIZE_LIMIT },
+  limits: { fileSize: 200 * 1024 * 1024 },
+});
+
+export const DELIVERY_ALLOWED_MIMES = new Set([
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-zip',
+  'application/octet-stream',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/png',
+  'image/jpeg',
+  'text/plain',
+]);
+
+export const DELIVERY_ALLOWED_EXTS = new Set([
+  '.pdf', '.zip', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.txt',
+]);
+
+export const deliveryUpload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 },
 });

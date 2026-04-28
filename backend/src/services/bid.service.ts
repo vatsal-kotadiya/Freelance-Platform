@@ -92,6 +92,31 @@ export async function acceptBid(bidId: string, clientId: string) {
   return result;
 }
 
+export async function rejectBid(bidId: string, clientId: string) {
+  const bid = await prisma.bid.findUnique({
+    where: { id: bidId },
+    include: { project: true },
+  });
+  if (!bid) throw new Error('Bid not found');
+  if (bid.project.clientId !== clientId) throw new Error('Not authorized');
+  if (bid.project.status !== 'OPEN') throw new Error('Project is no longer open');
+  if (bid.status !== BidStatus.PENDING) throw new Error('Only pending bids can be rejected');
+
+  const result = await prisma.bid.update({
+    where: { id: bidId },
+    data: { status: BidStatus.REJECTED },
+  });
+
+  await createNotification(
+    bid.freelancerId,
+    NotificationType.BID_REJECTED,
+    `Your bid on "${bid.project.title}" was rejected.`,
+    bid.projectId
+  );
+
+  return result;
+}
+
 export async function getFreelancerBidForProject(projectId: string, freelancerId: string) {
   return prisma.bid.findUnique({
     where: { freelancerId_projectId: { freelancerId, projectId } },

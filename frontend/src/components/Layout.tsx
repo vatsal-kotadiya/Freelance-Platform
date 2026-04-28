@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -10,6 +10,14 @@ let notifSocket: Socket | null = null;
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  function navClass(path: string) {
+    const isActive = location.pathname === path;
+    return isActive
+      ? 'text-orange-500 bg-orange-50 px-3 py-1.5 rounded-full font-medium transition-colors'
+      : 'text-gray-500 hover:text-orange-500 px-3 py-1.5 rounded-full font-medium transition-colors hover:bg-orange-50';
+  }
   const { notifications, setNotifications, addNotification, markRead, markAllRead: markAllReadLocal } = useNotificationStore();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -77,23 +85,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </Link>
 
         {/* Nav links */}
-        <div className="flex items-center gap-7 text-sm font-medium">
+        <div className="flex items-center gap-1 text-sm font-medium">
           {user?.role === 'CLIENT' && (
             <>
-              <Link to="/dashboard" className="text-gray-500 hover:text-orange-500 transition-colors">Dashboard</Link>
-              <Link to="/my-projects" className="text-gray-500 hover:text-orange-500 transition-colors">My Projects</Link>
-              <Link to="/create-project" className="text-gray-500 hover:text-orange-500 transition-colors">Post a Project</Link>
+              <Link to="/dashboard" className={navClass('/dashboard')}>Dashboard</Link>
+              <Link to="/my-projects" className={navClass('/my-projects')}>My Projects</Link>
+              <Link to="/create-project" className={navClass('/create-project')}>Post a Project</Link>
             </>
           )}
           {user?.role === 'FREELANCER' && (
             <>
-              <Link to="/dashboard" className="text-gray-500 hover:text-orange-500 transition-colors">Dashboard</Link>
-              <Link to="/projects" className="text-gray-500 hover:text-orange-500 transition-colors">Browse Projects</Link>
-              <Link to="/my-bids" className="text-gray-500 hover:text-orange-500 transition-colors">My Bids</Link>
+              <Link to="/dashboard" className={navClass('/dashboard')}>Dashboard</Link>
+              <Link to="/projects" className={navClass('/projects')}>Browse Projects</Link>
+              <Link to="/my-bids" className={navClass('/my-bids')}>My Bids</Link>
             </>
           )}
           {user && (
-            <Link to={`/profile/${user.id}`} className="text-gray-500 hover:text-orange-500 transition-colors">Profile</Link>
+            <Link to={`/profile/${user.id}`} className={navClass(`/profile/${user.id}`)}>Profile</Link>
           )}
         </div>
 
@@ -103,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setOpen((prev) => !prev)}
-              className="relative p-2 rounded-full text-gray-500 hover:text-orange-500 hover:bg-orange-50 transition-colors focus:outline-none"
+              className={`relative p-2 rounded-full transition-colors focus:outline-none ${open ? 'text-orange-500 bg-orange-50' : 'text-gray-500 hover:text-orange-500 hover:bg-orange-50'}`}
               aria-label="Notifications"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

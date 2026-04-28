@@ -10,6 +10,9 @@ export const getProjectBids = (projectId: string, page = 1, limit = 10): Promise
 export const acceptBid = (bidId: string) =>
   api.patch(`/bids/${bidId}/accept`).then((r) => r.data);
 
+export const rejectBid = (bidId: string) =>
+  api.patch(`/bids/${bidId}/reject`).then((r) => r.data);
+
 export const getMyBids = (page = 1, limit = 10): Promise<PaginatedResult<any>> =>
   api.get('/bids/mine', { params: { page, limit } }).then((r) => r.data);
 

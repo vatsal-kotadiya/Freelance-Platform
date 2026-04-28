@@ -26,12 +26,15 @@ enum BidStatus {
 
 enum PaymentStatus {
   PENDING
+  WORK_SUBMITTED
+  WORK_REJECTED
   RELEASED
 }
 
 enum NotificationType {
   BID_PLACED
   BID_ACCEPTED
+  BID_REJECTED
   NEW_MESSAGE
   PROJECT_COMPLETED
 }
@@ -172,6 +175,12 @@ model Payment {
   amount    Float
   status    PaymentStatus @default(PENDING)
   createdAt DateTime      @default(now())
+  submittedAt DateTime?
+  paidAt      DateTime?
+
+  deliveryFileUrl  String?
+  deliveryFileName String?
+  rejectionReason  String?
 
   projectId String  @unique
   project   Project @relation(fields: [projectId], references: [id])

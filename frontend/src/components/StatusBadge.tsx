@@ -6,6 +6,8 @@ const colors: Record<string, string> = {
   ACCEPTED: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   REJECTED: 'bg-red-50 text-red-600 border border-red-200',
   RELEASED: 'bg-purple-50 text-purple-700 border border-purple-200',
+  WORK_SUBMITTED: 'bg-blue-50 text-blue-700 border border-blue-200',
+  WORK_REJECTED: 'bg-red-50 text-red-600 border border-red-200',
 };
 
 export default function StatusBadge({ status }: { status: string }) {

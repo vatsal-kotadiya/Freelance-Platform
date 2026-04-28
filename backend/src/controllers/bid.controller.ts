@@ -52,6 +52,18 @@ export async function accept(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function reject(req: Request, res: Response, next: NextFunction) {
+  try {
+    const bid = await bidService.rejectBid(req.params.bidId, req.user!.userId);
+    res.json(bid);
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === 'Not authorized') { res.status(403).json({ error: msg }); return; }
+    if (msg.includes('no longer open') || msg.includes('Only pending')) { res.status(400).json({ error: msg }); return; }
+    next(err);
+  }
+}
+
 export async function mine(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);

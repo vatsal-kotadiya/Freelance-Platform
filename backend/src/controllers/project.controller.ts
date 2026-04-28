@@ -84,3 +84,16 @@ export async function complete(req: Request, res: Response, next: NextFunction) 
     next(err);
   }
 }
+
+export async function remove(req: Request, res: Response, next: NextFunction) {
+  try {
+    await projectService.deleteProject(req.params.id, req.user!.userId);
+    res.status(204).send();
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === 'Not authorized') { res.status(403).json({ error: msg }); return; }
+    if (msg.includes('cannot be deleted')) { res.status(400).json({ error: msg }); return; }
+    if (msg === 'Project not found') { res.status(404).json({ error: msg }); return; }
+    next(err);
+  }
+}

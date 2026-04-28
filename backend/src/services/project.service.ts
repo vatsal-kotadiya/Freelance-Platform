@@ -117,6 +117,23 @@ export async function updateProject(id: string, clientId: string, data: Partial<
   return prisma.project.update({ where: { id }, data });
 }
 
+export async function deleteProject(id: string, clientId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: { payment: true },
+  });
+  if (!project) throw new Error('Project not found');
+  if (project.clientId !== clientId) throw new Error('Not authorized');
+  if (project.payment?.status === 'RELEASED') {
+    throw new Error('Project cannot be deleted after payment has been released');
+  }
+  if (project.payment?.status === 'WORK_SUBMITTED') {
+    throw new Error('Project cannot be deleted while awaiting payment review');
+  }
+
+  await prisma.project.delete({ where: { id } });
+}
+
 export async function markProjectComplete(id: string, clientId: string) {
   const project = await prisma.project.findUnique({
     where: { id },

@@ -1,19 +1,34 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
-import { getProject, completeProject } from '../api/projects';
-import { getProjectBids, placeBid, acceptBid, getMyBidForProject } from '../api/bids';
+import { getProject } from '../api/projects';
+import { getProjectBids, placeBid, acceptBid, rejectBid, getMyBidForProject } from '../api/bids';
 import { getMessages } from '../api/messages';
-import { getPayment, releasePayment } from '../api/payments';
+import {
+  getPayment,
+  submitDelivery,
+  rejectDelivery,
+  createRazorpayOrder,
+  verifyPayment,
+  downloadDelivery,
+} from '../api/payments';
 import { createReview, getMyReviewForProject, getProjectReviews, Review } from '../api/reviews';
-import { uploadFile, getProjectFiles, downloadFile, deleteFile, FileAttachment } from '../api/files';
 import { useAuthStore } from '../store/authStore';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
 import StarRating from '../components/StarRating';
 
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open(): void };
+  }
+}
+
 const BIDS_PAGE_SIZE = 10;
+
+const DELIVERY_ALLOWED_EXTS = ['.pdf', '.zip', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.txt'];
+const DELIVERY_MAX_SIZE = 200 * 1024 * 1024;
 
 let socket: Socket | null = null;
 
@@ -50,15 +65,21 @@ export default function ProjectDetailPage() {
   const [reviewError, setReviewError] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
 
-  const [projectFiles, setProjectFiles] = useState<FileAttachment[]>([]);
-  const [fileUploading, setFileUploading] = useState(false);
-  const [fileError, setFileError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Delivery state
+  const [deliveryUploading, setDeliveryUploading] = useState(false);
+  const [deliveryError, setDeliveryError] = useState('');
+  const deliveryInputRef = useRef<HTMLInputElement>(null);
+
+  // Payment / rejection state
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const isClient = user?.role === 'CLIENT';
   const isProjectOwner = isClient && project?.clientId === user?.id;
   const hasChat = project?.status === 'IN_PROGRESS' || project?.status === 'COMPLETED';
-  const hasFiles = project?.status === 'IN_PROGRESS' || project?.status === 'COMPLETED';
 
   function fetchBids(p: number) {
     if (!id) return;
@@ -110,9 +131,6 @@ export default function ProjectDetailPage() {
     if (project?.status === 'COMPLETED' && id) {
       getProjectReviews(id).then(setProjectReviews).catch(() => {});
     }
-    if ((project?.status === 'IN_PROGRESS' || project?.status === 'COMPLETED') && id) {
-      getProjectFiles(id).then(setProjectFiles).catch(() => {});
-    }
   }, [project?.status]);
 
   useEffect(() => {
@@ -155,27 +173,18 @@ export default function ProjectDetailPage() {
       const updated = await getProject(id!);
       setProject(updated);
       fetchBids(1);
+      getPayment(id!).then(setPayment).catch(() => {});
     } catch (err: any) {
       alert(err.response?.data?.error ?? 'Failed to accept bid');
     }
   }
 
-  async function handleComplete() {
+  async function handleRejectBid(bidId: string) {
     try {
-      const updated = await completeProject(id!);
-      setProject(updated);
+      const updated = await rejectBid(bidId);
+      setBids((prev) => prev.map((b) => (b.id === bidId ? { ...b, status: updated.status } : b)));
     } catch (err: any) {
-      alert(err.response?.data?.error ?? 'Failed to complete project');
-    }
-  }
-
-  async function handleReleasePayment() {
-    if (!payment) return;
-    try {
-      const updated = await releasePayment(payment.id);
-      setPayment(updated);
-    } catch (err: any) {
-      alert(err.response?.data?.error ?? 'Failed to release payment');
+      alert(err.response?.data?.error ?? 'Failed to reject bid');
     }
   }
 
@@ -184,35 +193,6 @@ export default function ProjectDetailPage() {
     if (!chatInput.trim() || !socket) return;
     socket.emit('sendMessage', { projectId: id, content: chatInput.trim() });
     setChatInput('');
-  }
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !id) return;
-    setFileError('');
-    setFileUploading(true);
-    try {
-      const attachment = await uploadFile(id, file);
-      setProjectFiles((prev) => [attachment, ...prev]);
-    } catch (err: any) {
-      setFileError(err.response?.data?.error ?? 'Upload failed');
-    } finally {
-      setFileUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }
-
-  async function handleDeleteFile(fileId: string) {
-    try {
-      await deleteFile(fileId);
-      setProjectFiles((prev) => prev.filter((f) => f.id !== fileId));
-    } catch { /* ignore */ }
-  }
-
-  async function handleDownload(fileId: string, filename: string) {
-    try {
-      await downloadFile(fileId, filename);
-    } catch { /* ignore */ }
   }
 
   async function handleSubmitReview(e: FormEvent) {
@@ -229,6 +209,106 @@ export default function ProjectDetailPage() {
       setReviewError(err.response?.data?.error ?? 'Failed to submit review');
     } finally {
       setReviewLoading(false);
+    }
+  }
+
+  // ─── Delivery upload (freelancer) ───────────────────────────────────────────
+  async function handleDeliveryUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !payment) return;
+    setDeliveryError('');
+
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!DELIVERY_ALLOWED_EXTS.includes(ext)) {
+      setDeliveryError(`Invalid file type. Allowed: ${DELIVERY_ALLOWED_EXTS.join(', ')}`);
+      if (deliveryInputRef.current) deliveryInputRef.current.value = '';
+      return;
+    }
+    if (file.size > DELIVERY_MAX_SIZE) {
+      setDeliveryError('File size exceeds 50 MB limit');
+      if (deliveryInputRef.current) deliveryInputRef.current.value = '';
+      return;
+    }
+
+    setDeliveryUploading(true);
+    try {
+      const updated = await submitDelivery(payment.id, file);
+      setPayment(updated);
+    } catch (err: any) {
+      setDeliveryError(err.response?.data?.error ?? 'Upload failed. Please try again.');
+    } finally {
+      setDeliveryUploading(false);
+      if (deliveryInputRef.current) deliveryInputRef.current.value = '';
+    }
+  }
+
+  // ─── Reject delivery (client) ────────────────────────────────────────────────
+  async function handleRejectDelivery() {
+    if (!payment || rejecting) return;
+    setRejecting(true);
+    try {
+      const updated = await rejectDelivery(payment.id, rejectReason.trim() || undefined);
+      setPayment(updated);
+      setShowRejectForm(false);
+      setRejectReason('');
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? 'Failed to reject delivery');
+    } finally {
+      setRejecting(false);
+    }
+  }
+
+  // ─── Razorpay payment (client) ───────────────────────────────────────────────
+  async function handleMakePayment() {
+    if (!payment || paymentLoading) return;
+    setPaymentLoading(true);
+    setPaymentError('');
+    try {
+      const order = await createRazorpayOrder(payment.id);
+      const rzp = new window.Razorpay({
+        key: order.razorpayKeyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'FreelanceHub',
+        description: project?.title ?? 'Project Payment',
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const updated = await verifyPayment(payment.id, {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            setPayment(updated);
+            setProject((p: any) => ({ ...p, status: 'COMPLETED' }));
+          } catch {
+            setPaymentError('Payment verification failed. Please contact support if amount was deducted.');
+          } finally {
+            setPaymentLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setPaymentLoading(false),
+        },
+        theme: { color: '#f97316' },
+      });
+      rzp.open();
+    } catch (err: any) {
+      setPaymentError(err.response?.data?.error ?? 'Failed to initiate payment. Please try again.');
+      setPaymentLoading(false);
+    }
+  }
+
+  async function handleDownloadDelivery() {
+    if (!payment) return;
+    try {
+      await downloadDelivery(payment.id, payment.deliveryFileName ?? 'delivery');
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? 'Download failed');
     }
   }
 
@@ -269,38 +349,200 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-4 mt-4">
             <span className="text-2xl font-extrabold text-gray-900">${project.budget.toLocaleString()}</span>
           </div>
-          {isProjectOwner && project.status === 'IN_PROGRESS' && (
-            <button
-              onClick={handleComplete}
-              className="mt-4 bg-emerald-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-emerald-600 transition-all shadow-sm"
-            >
-              Mark as Complete
-            </button>
-          )}
         </div>
 
-        {/* Payment Status */}
-        {payment && (
+        {/* ── Project Delivery (client uploads completed project) ──────────────── */}
+        {isProjectOwner && payment && project.status === 'IN_PROGRESS' && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-gray-900">Payment</h2>
-                <p className="text-sm text-gray-400 mt-0.5">${payment.amount.toLocaleString()}</p>
+            <h2 className="font-bold text-gray-900 mb-4">Project Delivery</h2>
+
+            {payment.status === 'PENDING' && (
+              <div className="space-y-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-amber-700 text-sm font-medium">Upload the completed project for the freelancer to review</p>
+                </div>
+                {deliveryError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <p className="text-red-600 text-sm">{deliveryError}</p>
+                  </div>
+                )}
+                <label className={`inline-flex items-center gap-2 text-sm px-5 py-2 rounded-full border font-semibold cursor-pointer transition-all ${
+                  deliveryUploading ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-orange-500 border-orange-200 hover:bg-orange-50'
+                }`}>
+                  {deliveryUploading ? <><span className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin" />Uploading…</> : '+ Upload Project File'}
+                  <input ref={deliveryInputRef} type="file" className="hidden" disabled={deliveryUploading} onChange={handleDeliveryUpload} />
+                </label>
+                <p className="text-xs text-gray-400">Accepted: PDF, ZIP, DOC, DOCX, PNG, JPG · Max 200 MB</p>
               </div>
-              <StatusBadge status={payment.status} />
-            </div>
-            {isProjectOwner && project.status === 'COMPLETED' && payment.status === 'PENDING' && (
-              <button
-                onClick={handleReleasePayment}
-                className="mt-4 bg-purple-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-600 transition-all shadow-sm"
-              >
-                Release Payment
-              </button>
+            )}
+
+            {payment.status === 'WORK_SUBMITTED' && (
+              <div className="space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                  <p className="text-blue-700 text-sm font-medium">File uploaded — waiting for freelancer to review and make payment</p>
+                  {payment.deliveryFileName && <p className="text-blue-600 text-xs mt-1">File: {payment.deliveryFileName}</p>}
+                </div>
+                {deliveryError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <p className="text-red-600 text-sm">{deliveryError}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Need to replace the file?</p>
+                  <label className={`inline-flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border font-semibold cursor-pointer transition-all ${
+                    deliveryUploading ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-500 border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    {deliveryUploading ? <><span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />Uploading…</> : 'Re-upload'}
+                    <input ref={deliveryInputRef} type="file" className="hidden" disabled={deliveryUploading} onChange={handleDeliveryUpload} />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {payment.status === 'WORK_REJECTED' && (
+              <div className="space-y-3">
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <p className="text-red-700 text-sm font-semibold">Freelancer rejected the submission — please re-upload</p>
+                  {payment.rejectionReason && <p className="text-red-600 text-xs mt-1">Reason: {payment.rejectionReason}</p>}
+                </div>
+                {deliveryError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <p className="text-red-600 text-sm">{deliveryError}</p>
+                  </div>
+                )}
+                <label className={`inline-flex items-center gap-2 text-sm px-5 py-2 rounded-full border font-semibold cursor-pointer transition-all ${
+                  deliveryUploading ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-orange-500 border-orange-200 hover:bg-orange-50'
+                }`}>
+                  {deliveryUploading ? <><span className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin" />Uploading…</> : '+ Re-upload Project File'}
+                  <input ref={deliveryInputRef} type="file" className="hidden" disabled={deliveryUploading} onChange={handleDeliveryUpload} />
+                </label>
+                <p className="text-xs text-gray-400">Accepted: PDF, ZIP, DOC, DOCX, PNG, JPG · Max 200 MB</p>
+              </div>
             )}
           </div>
         )}
 
-        {/* Bids Section (Client / Project Owner only) */}
+        {/* ── Payment Section (payment actions only, no upload) ─────────────────── */}
+        {payment && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-bold text-gray-900">Payment</h2>
+                <p className="text-sm text-gray-400 mt-0.5">₹{payment.amount.toLocaleString()}</p>
+              </div>
+              <StatusBadge status={payment.status} />
+            </div>
+
+            {/* CLIENT — status info only */}
+            {isProjectOwner && payment.status === 'RELEASED' && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+                <p className="text-purple-700 text-sm font-semibold">Payment received successfully</p>
+                {payment.paidAt && <p className="text-purple-500 text-xs mt-0.5">{new Date(payment.paidAt).toLocaleDateString()}</p>}
+              </div>
+            )}
+
+            {/* FREELANCER — payment actions */}
+            {!isClient && (() => {
+              if (payment.status === 'PENDING') {
+                return (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <p className="text-amber-700 text-sm font-medium">Waiting for client to upload completed work</p>
+                  </div>
+                );
+              }
+
+              if (payment.status === 'WORK_SUBMITTED') {
+                return (
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                      <p className="text-blue-700 text-sm font-semibold">Project uploaded. Review and proceed to payment.</p>
+                      {payment.deliveryFileName && <p className="text-blue-600 text-xs mt-1">File: {payment.deliveryFileName}</p>}
+                    </div>
+                    {paymentError && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                        <p className="text-red-600 text-sm">{paymentError}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={handleMakePayment}
+                        disabled={paymentLoading}
+                        className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm"
+                      >
+                        {paymentLoading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                        {paymentLoading ? 'Processing…' : 'Make Payment'}
+                      </button>
+                      <button
+                        onClick={() => { setShowRejectForm((v) => !v); setRejectReason(''); }}
+                        className="bg-white text-red-500 border border-red-200 px-5 py-2 rounded-full text-sm font-semibold hover:bg-red-50 transition-all"
+                      >
+                        Reject Work
+                      </button>
+                    </div>
+                    {showRejectForm && (
+                      <div className="space-y-2 pt-1">
+                        <textarea
+                          rows={3}
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="Reason for rejection (optional)"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent bg-white transition-all resize-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleRejectDelivery}
+                            disabled={rejecting}
+                            className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-red-600 disabled:opacity-60 transition-all"
+                          >
+                            {rejecting ? 'Rejecting…' : 'Confirm Reject'}
+                          </button>
+                          <button
+                            onClick={() => { setShowRejectForm(false); setRejectReason(''); }}
+                            className="bg-white text-gray-500 border border-gray-200 px-4 py-2 rounded-full text-xs font-semibold hover:bg-gray-50 transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (payment.status === 'WORK_REJECTED') {
+                return (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <p className="text-amber-700 text-sm font-semibold">Rejection sent — waiting for client to re-upload</p>
+                    {payment.rejectionReason && <p className="text-amber-600 text-xs mt-1">Your reason: {payment.rejectionReason}</p>}
+                  </div>
+                );
+              }
+
+              if (payment.status === 'RELEASED') {
+                return (
+                  <div className="space-y-3">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                      <p className="text-emerald-700 text-sm font-semibold">Payment made — work accepted</p>
+                      {payment.paidAt && <p className="text-emerald-600 text-xs mt-0.5">{new Date(payment.paidAt).toLocaleDateString()}</p>}
+                    </div>
+                    {payment.deliveryFileName && (
+                      <button
+                        onClick={handleDownloadDelivery}
+                        className="inline-flex items-center gap-2 text-sm px-5 py-2 rounded-full border border-orange-200 text-orange-500 font-semibold hover:bg-orange-50 transition-all"
+                      >
+                        Download project file
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
+          </div>
+        )}
+
+        {/* ── Bids Section (Client / Project Owner only) ───────────────────────── */}
         {isProjectOwner && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 mb-4">
@@ -323,12 +565,20 @@ export default function ProjectDetailPage() {
                           <span className="font-bold text-gray-900 text-sm">${b.amount.toLocaleString()}</span>
                           <StatusBadge status={b.status} />
                           {b.status === 'PENDING' && project.status === 'OPEN' && (
-                            <button
-                              onClick={() => handleAcceptBid(b.id)}
-                              className="bg-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-orange-600 transition-all"
-                            >
-                              Accept
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleAcceptBid(b.id)}
+                                className="bg-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-orange-600 transition-all"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleRejectBid(b.id)}
+                                className="bg-white text-red-500 border border-red-200 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-red-50 transition-all"
+                              >
+                                Reject
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -341,7 +591,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Place Bid (Freelancer, open project, no existing bid) */}
+        {/* ── Place Bid (Freelancer, open project, no existing bid) ────────────── */}
         {!isClient && project.status === 'OPEN' && !myBid && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 mb-4">Place a Bid</h2>
@@ -387,7 +637,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* My Bid (Freelancer existing bid) */}
+        {/* ── My Bid (Freelancer existing bid) ─────────────────────────────────── */}
         {myBid && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 mb-3">Your Bid</h2>
@@ -399,7 +649,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Reviews — completed projects only */}
+        {/* ── Reviews (completed projects only) ────────────────────────────────── */}
         {project.status === 'COMPLETED' && (() => {
           const theirReview = projectReviews.find((r) => r.reviewee?.id === user?.id) ?? null;
           return (
@@ -465,70 +715,7 @@ export default function ProjectDetailPage() {
           );
         })()}
 
-        {/* Project Files */}
-        {hasFiles && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Project Files</h2>
-              <label className={`text-sm px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all ${
-                fileUploading
-                  ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'text-orange-500 border-orange-200 hover:bg-orange-50'
-              }`}>
-                {fileUploading ? 'Uploading…' : '+ Upload'}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  disabled={fileUploading}
-                  onChange={handleUpload}
-                />
-              </label>
-            </div>
-            {fileError && <p className="text-sm text-red-500 mb-3">{fileError}</p>}
-            {projectFiles.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">No files uploaded yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {projectFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3 hover:border-orange-100 transition-all">
-                    <div className="min-w-0 flex items-center gap-3">
-                      <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 truncate">{f.filename}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {(f.size / 1024).toFixed(1)} KB · {f.uploader.name} · {new Date(f.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => handleDownload(f.id, f.filename)}
-                        className="text-xs text-orange-500 hover:text-orange-600 px-3 py-1.5 rounded-full hover:bg-orange-50 font-semibold transition-all"
-                      >
-                        Download
-                      </button>
-                      {f.uploader.id === user?.id && (
-                        <button
-                          onClick={() => handleDeleteFile(f.id)}
-                          className="text-xs text-red-400 hover:text-red-600 px-3 py-1.5 rounded-full hover:bg-red-50 font-semibold transition-all"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Chat */}
+        {/* ── Chat ──────────────────────────────────────────────────────────────── */}
         {hasChat && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 mb-4">Project Chat</h2>

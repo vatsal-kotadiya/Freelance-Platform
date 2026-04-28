@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { roleGuard } from '../middleware/roleGuard';
-import { create, list, getOne, getMine, suggestions, mineSuggestions, update, complete } from '../controllers/project.controller';
+import { create, list, getOne, getMine, suggestions, mineSuggestions, update, complete, remove } from '../controllers/project.controller';
 import { listForProject } from '../controllers/bid.controller';
 import { getHistory } from '../controllers/message.controller';
 
@@ -17,6 +17,7 @@ router.post('/', roleGuard('CLIENT'), create);
 router.get('/:id', getOne);
 router.put('/:id', roleGuard('CLIENT'), update);
 router.patch('/:id/complete', roleGuard('CLIENT'), complete);
+router.delete('/:id', roleGuard('CLIENT'), remove);
 
 router.get('/:projectId/bids', roleGuard('CLIENT'), listForProject);
 router.get('/:projectId/messages', getHistory);
