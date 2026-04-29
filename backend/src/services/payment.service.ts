@@ -47,7 +47,11 @@ export async function submitDelivery(
     fs.unlinkSync(file.path);
     throw new Error('Payment already released, cannot re-upload');
   }
-  if (payment.status !== PaymentStatus.PENDING && payment.status !== PaymentStatus.WORK_REJECTED) {
+  if (
+    payment.status !== PaymentStatus.PENDING &&
+    payment.status !== PaymentStatus.WORK_SUBMITTED &&
+    payment.status !== PaymentStatus.WORK_REJECTED
+  ) {
     fs.unlinkSync(file.path);
     throw new Error('Cannot upload delivery at this stage');
   }

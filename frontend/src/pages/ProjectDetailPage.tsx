@@ -197,6 +197,10 @@ export default function ProjectDetailPage() {
   }, [project?.status, id]);
 
   useEffect(() => {
+    setDeliveryError('');
+  }, [payment?.status]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -618,13 +622,13 @@ export default function ProjectDetailPage() {
                   <p className="text-blue-700 text-sm font-medium">File uploaded — waiting for freelancer to review and make payment</p>
                   {payment.deliveryFileName && <p className="text-blue-600 text-xs mt-1">File: {payment.deliveryFileName}</p>}
                 </div>
-                {deliveryError && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                    <p className="text-red-600 text-sm">{deliveryError}</p>
-                  </div>
-                )}
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Need to replace the file?</p>
+                  {deliveryError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-2">
+                      <p className="text-red-600 text-sm">{deliveryError}</p>
+                    </div>
+                  )}
                   <label className={`inline-flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border font-semibold cursor-pointer transition-all ${
                     deliveryUploading ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-500 border-gray-200 hover:bg-gray-50'
                   }`}>
@@ -653,6 +657,12 @@ export default function ProjectDetailPage() {
                   <input ref={deliveryInputRef} type="file" className="hidden" disabled={deliveryUploading} onChange={handleDeliveryUpload} />
                 </label>
                 <p className="text-xs text-gray-400">Accepted: PDF, ZIP, DOC, DOCX, PNG, JPG · Max 200 MB</p>
+              </div>
+            )}
+
+            {payment.status === 'RELEASED' && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                <p className="text-gray-500 text-sm">Delivery locked after payment.</p>
               </div>
             )}
           </div>
