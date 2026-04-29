@@ -6,6 +6,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import BrowseProjectsPage from './pages/BrowseProjectsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
+import EditProjectPage from './pages/EditProjectPage';
 import MyProjectsPage from './pages/MyProjectsPage';
 import MyBidsPage from './pages/MyBidsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
@@ -29,6 +30,7 @@ export default function App() {
           <Route element={<ProtectedRoute requiredRole="CLIENT" />}>
             <Route path="/my-projects" element={<MyProjectsPage />} />
             <Route path="/create-project" element={<CreateProjectPage />} />
+            <Route path="/projects/:id/edit" element={<EditProjectPage />} />
           </Route>
 
           <Route element={<ProtectedRoute requiredRole="FREELANCER" />}>

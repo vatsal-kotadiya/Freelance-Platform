@@ -108,13 +108,24 @@ export async function getClientProjects(clientId: string, page = 1, limit = 10, 
   return { data, total, page, totalPages: Math.ceil(total / limit) };
 }
 
-export async function updateProject(id: string, clientId: string, data: Partial<{ title: string; description: string; budget: number }>) {
+export async function updateProject(
+  id: string,
+  clientId: string,
+  data: Partial<{ title: string; description: string; budget: number }>,
+  keepImages: string[] = [],
+  newImages: string[] = [],
+) {
   const project = await prisma.project.findUnique({ where: { id } });
   if (!project) throw new Error('Project not found');
   if (project.clientId !== clientId) throw new Error('Not authorized');
   if (project.status !== 'OPEN') throw new Error('Can only edit open projects');
 
-  return prisma.project.update({ where: { id }, data });
+  const sampleImages = [
+    ...project.sampleImages.filter((img) => keepImages.includes(img)),
+    ...newImages,
+  ];
+
+  return prisma.project.update({ where: { id }, data: { ...data, sampleImages } });
 }
 
 export async function deleteProject(id: string, clientId: string) {

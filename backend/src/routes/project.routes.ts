@@ -16,7 +16,7 @@ router.get('/mine/suggestions', roleGuard('CLIENT'), mineSuggestions);
 router.get('/mine', roleGuard('CLIENT'), getMine);
 router.post('/', roleGuard('CLIENT'), sampleImageUpload.array('sampleImages', 5), create);
 router.get('/:id', getOne);
-router.put('/:id', roleGuard('CLIENT'), update);
+router.put('/:id', roleGuard('CLIENT'), sampleImageUpload.array('sampleImages', 5), update);
 router.patch('/:id/complete', roleGuard('CLIENT'), complete);
 router.delete('/:id', roleGuard('CLIENT'), remove);
 

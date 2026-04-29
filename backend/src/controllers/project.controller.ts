@@ -67,7 +67,11 @@ export async function getMine(req: Request, res: Response, next: NextFunction) {
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
     const data = updateSchema.parse(req.body);
-    const project = await projectService.updateProject(req.params.id, req.user!.userId, data);
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    const newImages = files.map((f) => f.filename);
+    const raw = req.body.keepImages;
+    const keepImages: string[] = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+    const project = await projectService.updateProject(req.params.id, req.user!.userId, data, keepImages, newImages);
     res.json(project);
   } catch (err) {
     if ((err as Error).message === 'Not authorized') { res.status(403).json({ error: 'Not authorized' }); return; }

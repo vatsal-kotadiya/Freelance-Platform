@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { getProject } from '../api/projects';
 import { getProjectBids, placeBid, acceptBid, rejectBid, getMyBidForProject } from '../api/bids';
@@ -80,6 +80,34 @@ export default function ProjectDetailPage() {
   const [rejecting, setRejecting] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Image lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  function openLightbox(index: number) {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  }
+  function closeLightbox() { setLightboxOpen(false); }
+  function lightboxPrev() { setLightboxIndex((i) => (i - 1 + (project?.sampleImages?.length ?? 1)) % (project?.sampleImages?.length ?? 1)); }
+  function lightboxNext() { setLightboxIndex((i) => (i + 1) % (project?.sampleImages?.length ?? 1)); }
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    document.body.style.overflow = 'hidden';
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxPrev();
+      if (e.key === 'ArrowRight') lightboxNext();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxOpen, lightboxIndex]);
 
   const isClient = user?.role === 'CLIENT';
   const isProjectOwner = isClient && project?.clientId === user?.id;
@@ -353,9 +381,131 @@ export default function ProjectDetailPage() {
               <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{project.title}</h1>
               <p className="text-gray-400 text-sm mt-1">Posted by <span className="text-gray-600 font-medium">{project.client.name}</span></p>
             </div>
-            <StatusBadge status={project.status} />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <StatusBadge status={project.status} />
+              {isProjectOwner && project.status === 'OPEN' && (
+                <Link
+                  to={`/projects/${id}/edit`}
+                  className="inline-flex items-center gap-1.5 text-sm border border-gray-200 text-gray-600 rounded-full px-3 py-1.5 hover:border-orange-300 hover:text-orange-500 transition-all font-medium"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
+                  </svg>
+                  Edit
+                </Link>
+              )}
+            </div>
           </div>
           <p className="text-gray-600 mt-4 leading-relaxed text-sm">{project.description}</p>
+
+          {project.sampleImages?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {project.sampleImages.map((filename: string, idx: number) => (
+                <button
+                  key={filename}
+                  type="button"
+                  onClick={() => openLightbox(idx)}
+                  className="w-20 h-20 rounded-xl overflow-hidden border border-gray-100 hover:border-orange-300 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-orange-400 flex-shrink-0"
+                >
+                  <img
+                    src={`${import.meta.env.VITE_SOCKET_URL}/uploads/${filename}`}
+                    alt={`Project image ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Lightbox ────────────────────────────────────────────────────────── */}
+          {lightboxOpen && project.sampleImages?.length > 0 && (
+            <div
+              className="fixed inset-0 z-50 flex flex-col bg-black/92 backdrop-blur-sm animate-fade-in"
+              onClick={closeLightbox}
+            >
+              {/* Close — fixed to top-right corner of screen */}
+              <button
+                onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+                className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition-all hover:scale-110"
+                aria-label="Close lightbox"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Left arrow — pinned to left screen edge */}
+              {project.sampleImages.length > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+                  className="fixed left-0 top-1/2 -translate-y-1/2 z-50 h-24 w-14 flex items-center justify-center bg-black/60 hover:bg-black/80 text-white transition-all rounded-r-xl"
+                  aria-label="Previous image"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Right arrow — pinned to right screen edge */}
+              {project.sampleImages.length > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+                  className="fixed right-0 top-1/2 -translate-y-1/2 z-50 h-24 w-14 flex items-center justify-center bg-black/60 hover:bg-black/80 text-white transition-all rounded-l-xl"
+                  aria-label="Next image"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Main image — centred, fills remaining height */}
+              <div
+                className="flex-1 flex items-center justify-center px-16 py-8 min-h-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={`${import.meta.env.VITE_SOCKET_URL}/uploads/${project.sampleImages[lightboxIndex]}`}
+                  alt={`Project image ${lightboxIndex + 1}`}
+                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
+                />
+              </div>
+
+              {/* Bottom bar — counter + thumbnail strip */}
+              <div
+                className="flex-shrink-0 flex flex-col items-center gap-2 pb-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-white/50 text-xs font-semibold tracking-widest uppercase">
+                  {lightboxIndex + 1} / {project.sampleImages.length}
+                </p>
+
+                {project.sampleImages.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto px-4 pb-1 max-w-full">
+                    {project.sampleImages.map((filename: string, idx: number) => (
+                      <button
+                        key={filename}
+                        onClick={() => setLightboxIndex(idx)}
+                        className={`w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                          idx === lightboxIndex
+                            ? 'border-orange-400 scale-110 opacity-100'
+                            : 'border-transparent opacity-40 hover:opacity-70'
+                        }`}
+                      >
+                        <img
+                          src={`${import.meta.env.VITE_SOCKET_URL}/uploads/${filename}`}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 mt-4">
             <span className="text-2xl font-extrabold text-gray-900">${project.budget.toLocaleString()}</span>
           </div>

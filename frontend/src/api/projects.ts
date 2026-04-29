@@ -24,6 +24,16 @@ export const createProject = (data: { title: string; description: string; budget
   (data.images ?? []).forEach((img) => form.append('sampleImages', img));
   return api.post('/projects', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 };
-export const updateProject = (id: string, data: Partial<{ title: string; description: string; budget: number }>) =>
-  api.put(`/projects/${id}`, data).then((r) => r.data);
+export const updateProject = (
+  id: string,
+  data: { title?: string; description?: string; budget?: number; keepImages?: string[]; newImages?: File[] },
+) => {
+  const form = new FormData();
+  if (data.title !== undefined) form.append('title', data.title);
+  if (data.description !== undefined) form.append('description', data.description);
+  if (data.budget !== undefined) form.append('budget', String(data.budget));
+  (data.keepImages ?? []).forEach((img) => form.append('keepImages', img));
+  (data.newImages ?? []).forEach((img) => form.append('sampleImages', img));
+  return api.put(`/projects/${id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+};
 export const completeProject = (id: string) => api.patch(`/projects/${id}/complete`).then((r) => r.data);
