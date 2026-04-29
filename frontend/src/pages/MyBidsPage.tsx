@@ -35,6 +35,16 @@ export default function MyBidsPage() {
 
   return (
     <Layout>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </button>
+
       <div className="mb-8">
         <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Freelancer</p>
         <h1 className="text-3xl font-extrabold text-gray-900">My Bids</h1>

@@ -35,6 +35,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     };
   }, [token, user?.id]);
 
+  // Reset any global body styles a previous page may have left behind
+  // (e.g. overflow:hidden from the image lightbox, or a Razorpay backdrop on navigation)
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+
+    // Remove any stray Razorpay iframe / backdrop injected into <body>
+    document.querySelectorAll('[id^="razorpay"], [class^="razorpay"]').forEach((el) => el.remove());
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {

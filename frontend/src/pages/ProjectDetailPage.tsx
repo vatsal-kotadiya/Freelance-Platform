@@ -93,19 +93,27 @@ export default function ProjectDetailPage() {
   function lightboxPrev() { setLightboxIndex((i) => (i - 1 + (project?.sampleImages?.length ?? 1)) % (project?.sampleImages?.length ?? 1)); }
   function lightboxNext() { setLightboxIndex((i) => (i + 1) % (project?.sampleImages?.length ?? 1)); }
 
+  // Overflow lock — only depends on open/close, never on index
+  useEffect(() => {
+    document.body.style.overflow = lightboxOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [lightboxOpen]);
+
+  // Guarantee overflow is cleared when the page unmounts (e.g. back-navigation while open)
+  useEffect(() => {
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  // Keyboard navigation — re-registers when index changes so prev/next are always fresh
   useEffect(() => {
     if (!lightboxOpen) return;
-    document.body.style.overflow = 'hidden';
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') lightboxPrev();
       if (e.key === 'ArrowRight') lightboxNext();
     }
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightboxOpen, lightboxIndex]);
 
@@ -127,9 +135,31 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+
+    // Reset all project-specific state so stale data from a previous project never bleeds in
     setProject(null);
     setFetchError('');
+    setLoading(true);
+    setBids([]);
+    setBidsPage(1);
+    setBidsTotalPages(1);
+    setBidsTotal(0);
+    setPayment(null);
+    setMyBid(null);
+    setMyReview(null);
+    setProjectReviews([]);
+    setMessages([]);
+    setHasMoreMessages(false);
+    setShowReviews(false);
+    setChatOpen(false);
+    setBidError('');
+    setDeliveryError('');
+    setPaymentError('');
+    setShowRejectForm(false);
+    setRejectReason('');
+    setPaymentLoading(false);
+    setDeliveryUploading(false);
+
     Promise.all([
       getProject(id).then(setProject).catch((err) => {
         const status = err?.response?.status;
@@ -163,7 +193,8 @@ export default function ProjectDetailPage() {
     if (project?.status === 'COMPLETED' && id) {
       getProjectReviews(id).then(setProjectReviews).catch(() => {});
     }
-  }, [project?.status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.status, id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -372,6 +403,16 @@ export default function ProjectDetailPage() {
 
   return (
     <Layout>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </button>
+
       <div className="space-y-5">
 
         {/* Project Header */}
