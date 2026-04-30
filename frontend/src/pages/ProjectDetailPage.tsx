@@ -426,7 +426,11 @@ export default function ProjectDetailPage() {
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{project.title}</h1>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{project.title}</h1>
+                <span className="text-gray-300 font-light text-xl select-none">•</span>
+                <span className="text-lg font-bold text-gray-700">${project.budget.toLocaleString()}</span>
+              </div>
               <p className="text-gray-400 text-sm mt-1">Posted by <span className="text-gray-600 font-medium">{project.client.name}</span></p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -447,7 +451,9 @@ export default function ProjectDetailPage() {
           <p className="text-gray-600 mt-4 leading-relaxed text-sm">{project.description}</p>
 
           {project.sampleImages?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
+            <div className="mt-4">
+            <h2 className="font-bold text-gray-900 mb-2">Images</h2>
+            <div className="flex flex-wrap gap-2">
               {project.sampleImages.map((filename: string, idx: number) => (
                 <button
                   key={filename}
@@ -462,6 +468,7 @@ export default function ProjectDetailPage() {
                   />
                 </button>
               ))}
+            </div>
             </div>
           )}
 
@@ -553,10 +560,6 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           )}
-
-          <div className="flex items-center gap-4 mt-4">
-            <span className="text-2xl font-extrabold text-gray-900">${project.budget.toLocaleString()}</span>
-          </div>
 
           {(project.status === 'COMPLETED' || hasChat) && (
             <div className="flex items-center gap-2 mt-5 pt-4 border-t border-gray-100 flex-wrap">
