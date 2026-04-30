@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { getProject } from '../api/projects';
 import { getProjectBids, placeBid, acceptBid, rejectBid, getMyBidForProject } from '../api/bids';
-import { getMessages } from '../api/messages';
+import { getMessages, sendChatFile } from '../api/messages';
 import {
   getPayment,
   submitDelivery,
@@ -75,6 +75,9 @@ export default function ProjectDetailPage() {
   const [deliveryUploading, setDeliveryUploading] = useState(false);
   const [deliveryError, setDeliveryError] = useState('');
   const deliveryInputRef = useRef<HTMLInputElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const [chatFileUploading, setChatFileUploading] = useState(false);
+  const [chatFileError, setChatFileError] = useState('');
 
   // Payment / rejection state
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -268,6 +271,37 @@ export default function ProjectDetailPage() {
     if (!chatInput.trim() || !socket) return;
     socket.emit('sendMessage', { projectId: id, content: chatInput.trim() });
     setChatInput('');
+  }
+
+  const CHAT_FILE_MAX = 10 * 1024 * 1024;
+  const CHAT_FILE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx', '.zip']);
+
+  async function handleChatFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setChatFileError('');
+
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!CHAT_FILE_EXTS.has(ext)) {
+      setChatFileError('Unsupported type. Allowed: JPG, PNG, PDF, DOC, DOCX, ZIP');
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+      return;
+    }
+    if (file.size > CHAT_FILE_MAX) {
+      setChatFileError('File exceeds 10 MB limit');
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+      return;
+    }
+
+    setChatFileUploading(true);
+    try {
+      await sendChatFile(id, file);
+    } catch (err: any) {
+      setChatFileError(err.response?.data?.error ?? 'Upload failed. Please try again.');
+    } finally {
+      setChatFileUploading(false);
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+    }
   }
 
   async function handleSubmitReview(e: FormEvent) {
@@ -1024,12 +1058,49 @@ export default function ProjectDetailPage() {
               return (
                 <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   <span className="text-xs text-gray-400 mb-1">{m.sender.name}</span>
-                  <div className={`max-w-[200px] px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
+                  <div className={`max-w-[200px] rounded-2xl text-sm leading-relaxed break-words overflow-hidden ${
                     isMe
                       ? 'bg-orange-500 text-white rounded-br-sm'
                       : 'bg-gray-100 text-gray-800 rounded-bl-sm'
                   }`}>
-                    {m.content}
+                    {m.fileUrl ? (() => {
+                      const isImage = m.fileMimeType?.startsWith('image/');
+                      const fileHref = `${import.meta.env.VITE_SOCKET_URL}${m.fileUrl}`;
+                      return (
+                        <div className="p-2 space-y-1.5">
+                          {isImage ? (
+                            <a href={fileHref} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={fileHref}
+                                alt={m.fileName ?? 'attachment'}
+                                className="w-full rounded-xl object-cover max-h-40"
+                              />
+                            </a>
+                          ) : (
+                            <div className={`flex items-center gap-2 px-2 py-1.5 rounded-xl ${isMe ? 'bg-orange-400' : 'bg-gray-200'}`}>
+                              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="text-xs font-medium truncate max-w-[120px]">{m.fileName}</span>
+                            </div>
+                          )}
+                          <a
+                            href={fileHref}
+                            download={m.fileName}
+                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full transition-all ${
+                              isMe ? 'bg-orange-400 hover:bg-orange-300 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                            }`}
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download
+                          </a>
+                        </div>
+                      );
+                    })() : (
+                      <div className="px-3 py-2">{m.content}</div>
+                    )}
                   </div>
                 </div>
               );
@@ -1037,8 +1108,39 @@ export default function ProjectDetailPage() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* File error */}
+          {chatFileError && (
+            <div className="px-3 pb-1 flex-shrink-0">
+              <p className="text-xs text-red-500">{chatFileError}</p>
+            </div>
+          )}
+
           {/* Input */}
           <form onSubmit={sendMessage} className="flex items-center gap-2 px-3 py-3 border-t border-gray-100 flex-shrink-0">
+            {/* Hidden file input */}
+            <input
+              ref={chatFileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.zip"
+              className="hidden"
+              onChange={handleChatFileChange}
+            />
+            {/* Attachment button */}
+            <button
+              type="button"
+              disabled={chatFileUploading}
+              onClick={() => { setChatFileError(''); chatFileInputRef.current?.click(); }}
+              className="text-gray-400 hover:text-orange-500 disabled:opacity-40 transition-colors flex-shrink-0"
+              aria-label="Attach file"
+            >
+              {chatFileUploading ? (
+                <span className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin block" />
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </button>
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
