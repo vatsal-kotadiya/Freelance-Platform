@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
@@ -8,8 +8,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
+  const { token, user, setAuth } = useAuthStore();
   const navigate = useNavigate();
+
+  if (token && user) return <Navigate to="/dashboard" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -18,7 +20,7 @@ export default function LoginPage() {
     try {
       const { token, user } = await login({ email, password });
       setAuth(token, user);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error ?? 'Login failed');
     } finally {

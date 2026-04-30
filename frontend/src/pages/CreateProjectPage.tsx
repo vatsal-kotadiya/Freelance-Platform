@@ -23,6 +23,7 @@ export default function CreateProjectPage() {
   const [loading, setLoading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const handleBack = () => navigate(-1);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     setImageError('');
@@ -87,6 +88,7 @@ export default function CreateProjectPage() {
     <Layout>
       <button
         type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { getProject } from '../api/projects';
 import { getProjectBids, placeBid, acceptBid, rejectBid, getMyBidForProject } from '../api/bids';
@@ -35,6 +35,8 @@ let socket: Socket | null = null;
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, token } = useAuthStore();
+  const navigate = useNavigate();
+  const handleBack = () => navigate(-1);
 
   const [project, setProject] = useState<any>(null);
   const [bids, setBids] = useState<any[]>([]);
@@ -409,6 +411,7 @@ export default function ProjectDetailPage() {
     <Layout>
       <button
         type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

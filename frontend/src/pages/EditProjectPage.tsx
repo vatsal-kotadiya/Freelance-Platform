@@ -16,6 +16,7 @@ interface NewImageEntry {
 export default function EditProjectPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const handleBack = () => navigate(-1);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -123,6 +124,7 @@ export default function EditProjectPage() {
     <Layout>
       <button
         type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { register } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
@@ -10,8 +10,10 @@ export default function RegisterPage() {
   const [role, setRole] = useState<'CLIENT' | 'FREELANCER'>('FREELANCER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
+  const { token, user, setAuth } = useAuthStore();
   const navigate = useNavigate();
+
+  if (token && user) return <Navigate to="/dashboard" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -20,7 +22,7 @@ export default function RegisterPage() {
     try {
       const { token, user } = await register({ name, email, password, role });
       setAuth(token, user);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error ?? 'Registration failed');
     } finally {

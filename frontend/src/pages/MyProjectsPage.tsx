@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getMyProjects, getMyProjectSuggestions } from '../api/projects';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
@@ -9,6 +9,8 @@ import SearchBar from '../components/SearchBar';
 const PAGE_SIZE = 10;
 
 export default function MyProjectsPage() {
+  const navigate = useNavigate();
+  const handleBack = () => navigate(-1);
   const [projects, setProjects] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -44,6 +46,7 @@ export default function MyProjectsPage() {
     <Layout>
       <button
         type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

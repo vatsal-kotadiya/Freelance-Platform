@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const handleBack = () => navigate(-1);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [reviewsData, setReviewsData] = useState<UserReviewsResult | null>(null);
@@ -175,6 +176,7 @@ export default function ProfilePage() {
     <Layout>
       <button
         type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-6"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
