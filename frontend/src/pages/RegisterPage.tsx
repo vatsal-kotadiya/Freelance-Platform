@@ -44,7 +44,7 @@ export default function RegisterPage() {
             Start your freelance journey today.
           </h2>
           <p className="text-orange-100 text-base leading-relaxed">
-            Join thousands of clients and freelancers building great products together.
+            Join thousands of freelancers and clients building great products together.
           </p>
         </div>
         <p className="text-orange-200 text-sm">© {new Date().getFullYear()} FreelanceHub</p>

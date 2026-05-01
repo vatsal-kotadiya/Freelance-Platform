@@ -5,6 +5,7 @@ import { getClientDashboard, getFreelancerDashboard } from '../api/dashboard';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import SearchBar from '../components/SearchBar';
+import { formatCurrency } from '../utils/currency';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -111,7 +112,7 @@ function ClientDashboard({ user, data }: { user: any; data: any }) {
             >
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors truncate">{p.title}</h3>
-                <p className="text-sm text-gray-400 mt-0.5">${p.budget.toLocaleString()} · {p._count.bids} bid{p._count.bids !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-gray-400 mt-0.5">{formatCurrency(p.budget)} · {p._count.bids} bid{p._count.bids !== 1 ? 's' : ''}</p>
               </div>
               <StatusBadge status={p.status} />
             </Link>
@@ -201,7 +202,7 @@ function FreelancerDashboard({ user, data }: { user: any; data: any }) {
             >
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors truncate">{b.project.title}</h3>
-                <p className="text-sm text-gray-400 mt-0.5">Your bid: ${b.amount.toLocaleString()} · {b.project.client.name}</p>
+                <p className="text-sm text-gray-400 mt-0.5">Your bid: {formatCurrency(b.amount)} · {b.project.client.name}</p>
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <StatusBadge status={b.status} />

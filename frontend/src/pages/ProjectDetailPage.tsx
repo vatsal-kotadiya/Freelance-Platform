@@ -18,6 +18,7 @@ import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
 import StarRating from '../components/StarRating';
+import { formatCurrency } from '../utils/currency';
 
 declare global {
   interface Window {
@@ -85,6 +86,14 @@ export default function ProjectDetailPage() {
   const [rejecting, setRejecting] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Pre-fetched Razorpay order — must be ready before the user clicks so rzp.open()
+  // runs synchronously inside the click handler (async calls break browser gesture context).
+  const [razorpayOrder, setRazorpayOrder] = useState<{
+    razorpayKeyId: string; orderId: string; amount: number; currency: string;
+  } | null>(null);
+  const [orderLoading, setOrderLoading] = useState(false);
+
 
   // Image lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -200,6 +209,38 @@ export default function ProjectDetailPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.status, id]);
+
+
+  // Pre-fetch Razorpay order when work is submitted so the click handler stays synchronous.
+  // Browsers block rzp.open() when it is called after an awaited network request.
+  useEffect(() => {
+    if (!payment || payment.status !== 'WORK_SUBMITTED' || isClient) return;
+
+    let cancelled = false;
+    setRazorpayOrder(null);
+    setOrderLoading(true);
+    setPaymentError('');
+
+    console.log('[Razorpay] Pre-fetching order for payment:', payment.id);
+    createRazorpayOrder(payment.id)
+      .then((order) => {
+        if (cancelled) return;
+        console.log('[Razorpay] Order pre-fetched:', order.orderId, '| key:', order.razorpayKeyId);
+        setRazorpayOrder(order);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        const msg = err.response?.data?.error ?? 'Failed to prepare payment. Click "Retry" to try again.';
+        console.error('[Razorpay] Pre-fetch failed:', msg);
+        setPaymentError(msg);
+      })
+      .finally(() => {
+        if (!cancelled) setOrderLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payment?.id, payment?.status, isClient]);
 
   useEffect(() => {
     setDeliveryError('');
@@ -367,25 +408,82 @@ export default function ProjectDetailPage() {
     }
   }
 
-  // ─── Razorpay payment (client) ───────────────────────────────────────────────
-  async function handleMakePayment() {
-    if (!payment || paymentLoading) return;
-    setPaymentLoading(true);
+  // ─── Razorpay payment — MUST stay synchronous ───────────────────────────────
+  // rzp.open() MUST be called with no async gap before it.  Any await before it
+  // breaks the browser's user-gesture context and silently prevents the modal.
+  // The order is pre-fetched in the useEffect above so this handler is pure sync.
+  function handleMakePayment() {
+    console.log('[Razorpay] Button clicked');
+
+    if (!payment) {
+      console.error('[Razorpay] No payment record');
+      return;
+    }
+
+    if (!window.Razorpay) {
+      console.error('[Razorpay] window.Razorpay is undefined — script not loaded');
+      setPaymentError('Payment SDK failed to load. Please refresh and try again.');
+      return;
+    }
+
+    if (!razorpayOrder) {
+      console.error('[Razorpay] Order not pre-fetched yet — orderLoading:', orderLoading);
+      setPaymentError(
+        orderLoading
+          ? 'Payment is still preparing. Please wait a moment.'
+          : 'Payment could not be prepared. Click Retry to try again.'
+      );
+      return;
+    }
+
+    console.log('[Razorpay] Opening modal | key:', razorpayOrder.razorpayKeyId,
+      '| orderId:', razorpayOrder.orderId, '| amount:', razorpayOrder.amount,
+      '| currency:', razorpayOrder.currency);
+
     setPaymentError('');
+    setPaymentLoading(true);
+
+    // Razorpay calls window.alert("This browser is not supported…") when its
+    // iframe/popup is blocked (popup blocker, ad blocker, or cookie policy).
+    // Intercept it so we can show a proper in-UI error message instead.
+    const _nativeAlert = window.alert;
+    window.alert = (msg: unknown) => {
+      window.alert = _nativeAlert;
+      const text = String(msg ?? '');
+      console.warn('[Razorpay] alert intercepted:', text);
+      if (text.toLowerCase().includes('not supported') || text.toLowerCase().includes('another browser')) {
+        setPaymentLoading(false);
+        setPaymentError(
+          'Razorpay popup was blocked by your browser. To fix this:\n' +
+          '1. Click the popup-blocked icon in your address bar and choose "Always allow popups from this site"\n' +
+          '2. Or open this page in an Incognito window (Ctrl+Shift+N)\n' +
+          '3. Or disable any ad-blocker / privacy extension for this site\n' +
+          'Then click Make Payment again.'
+        );
+      } else {
+        _nativeAlert(text);
+      }
+    };
+
     try {
-      const order = await createRazorpayOrder(payment.id);
       const rzp = new window.Razorpay({
-        key: order.razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
-        order_id: order.orderId,
+        key: razorpayOrder.razorpayKeyId,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        order_id: razorpayOrder.orderId,
         name: 'FreelanceHub',
         description: project?.title ?? 'Project Payment',
+        prefill: {
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+        },
         handler: async (response: {
           razorpay_order_id: string;
           razorpay_payment_id: string;
           razorpay_signature: string;
         }) => {
+          window.alert = _nativeAlert; // restore on success too
+          console.log('[Razorpay] Payment success, verifying…', response.razorpay_payment_id);
           try {
             const updated = await verifyPayment(payment.id, {
               razorpayOrderId: response.razorpay_order_id,
@@ -394,22 +492,50 @@ export default function ProjectDetailPage() {
             });
             setPayment(updated);
             setProject((p: any) => ({ ...p, status: 'COMPLETED' }));
+            setPaymentLoading(false);
           } catch {
             setPaymentError('Payment verification failed. Please contact support if amount was deducted.');
-          } finally {
             setPaymentLoading(false);
           }
         },
         modal: {
-          ondismiss: () => setPaymentLoading(false),
+          ondismiss: () => {
+            window.alert = _nativeAlert; // restore on dismiss
+            console.log('[Razorpay] Modal dismissed');
+            setPaymentLoading(false);
+          },
         },
         theme: { color: '#f97316' },
       });
+
+      console.log('[Razorpay] Calling rzp.open()…');
       rzp.open();
+      console.log('[Razorpay] rzp.open() returned — modal should be visible');
     } catch (err: any) {
-      setPaymentError(err.response?.data?.error ?? 'Failed to initiate payment. Please try again.');
+      window.alert = _nativeAlert; // always restore
+      console.error('[Razorpay] rzp.open() threw:', err);
+      setPaymentError('Failed to open payment window. Please try again.');
       setPaymentLoading(false);
     }
+  }
+
+  function handleRetryOrder() {
+    if (!payment || isClient) return;
+    setRazorpayOrder(null);
+    setOrderLoading(true);
+    setPaymentError('');
+    console.log('[Razorpay] Retrying order pre-fetch for payment:', payment.id);
+    createRazorpayOrder(payment.id)
+      .then((order) => {
+        console.log('[Razorpay] Retry success:', order.orderId);
+        setRazorpayOrder(order);
+      })
+      .catch((err: any) => {
+        const msg = err.response?.data?.error ?? 'Retry failed. Please refresh the page.';
+        console.error('[Razorpay] Retry failed:', msg);
+        setPaymentError(msg);
+      })
+      .finally(() => setOrderLoading(false));
   }
 
   async function handleDownloadDelivery() {
@@ -463,7 +589,7 @@ export default function ProjectDetailPage() {
               <div className="flex items-baseline gap-3 flex-wrap">
                 <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{project.title}</h1>
                 <span className="text-gray-300 font-light text-xl select-none">•</span>
-                <span className="text-lg font-bold text-gray-700">${project.budget.toLocaleString()}</span>
+                <span className="text-lg font-bold text-gray-700">{formatCurrency(project.budget)}</span>
               </div>
               <p className="text-gray-400 text-sm mt-1">Posted by <span className="text-gray-600 font-medium">{project.client.name}</span></p>
             </div>
@@ -482,7 +608,7 @@ export default function ProjectDetailPage() {
               )}
             </div>
           </div>
-          <p className="text-gray-600 mt-4 leading-relaxed text-sm">{project.description}</p>
+          <p className="text-gray-600 mt-4 leading-relaxed text-sm whitespace-pre-wrap">{project.description}</p>
 
           {project.sampleImages?.length > 0 && (
             <div className="mt-4">
@@ -682,7 +808,7 @@ export default function ProjectDetailPage() {
             {payment.status === 'WORK_REJECTED' && (
               <div className="space-y-3">
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                  <p className="text-red-700 text-sm font-semibold">Freelancer rejected the submission — please re-upload</p>
+                  <p className="text-red-700 text-sm font-semibold">Client rejected the submission — please re-upload</p>
                   {payment.rejectionReason && <p className="text-red-600 text-xs mt-1">Reason: {payment.rejectionReason}</p>}
                 </div>
                 {deliveryError && (
@@ -714,7 +840,7 @@ export default function ProjectDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-bold text-gray-900">Payment</h2>
-                <p className="text-sm text-gray-400 mt-0.5">₹{payment.amount.toLocaleString()}</p>
+                <p className="text-sm text-gray-400 mt-0.5">{formatCurrency(payment.amount)}</p>
               </div>
               <StatusBadge status={payment.status} />
             </div>
@@ -746,18 +872,26 @@ export default function ProjectDetailPage() {
                     </div>
                     {paymentError && (
                       <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                        <p className="text-red-600 text-sm">{paymentError}</p>
+                        <p className="text-red-600 text-sm whitespace-pre-line">{paymentError}</p>
                       </div>
                     )}
                     <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={handleMakePayment}
-                        disabled={paymentLoading}
+                        disabled={paymentLoading || orderLoading || !razorpayOrder}
                         className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm"
                       >
-                        {paymentLoading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                        {paymentLoading ? 'Processing…' : 'Make Payment'}
+                        {(paymentLoading || orderLoading) && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                        {paymentLoading ? 'Processing…' : orderLoading ? 'Preparing…' : 'Make Payment'}
                       </button>
+                      {!orderLoading && !razorpayOrder && !paymentLoading && (
+                        <button
+                          onClick={handleRetryOrder}
+                          className="flex items-center gap-1.5 bg-white text-orange-500 border border-orange-200 px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-50 transition-all"
+                        >
+                          ↺ Retry
+                        </button>
+                      )}
                       <button
                         onClick={() => { setShowRejectForm((v) => !v); setRejectReason(''); }}
                         className="bg-white text-red-500 border border-red-200 px-5 py-2 rounded-full text-sm font-semibold hover:bg-red-50 transition-all"
@@ -848,7 +982,7 @@ export default function ProjectDetailPage() {
                           <p className="text-sm text-gray-500 mt-1 leading-relaxed">{b.proposal}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="font-bold text-gray-900 text-sm">${b.amount.toLocaleString()}</span>
+                          <span className="font-bold text-gray-900 text-sm">{formatCurrency(b.amount)}</span>
                           <StatusBadge status={b.status} />
                           {b.status === 'PENDING' && project.status === 'OPEN' && (
                             <>
@@ -888,9 +1022,9 @@ export default function ProjectDetailPage() {
             )}
             <form onSubmit={handlePlaceBid} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Bid Amount (USD)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Bid Amount (₹)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
                   <input
                     type="number"
                     value={bidAmount}
@@ -928,7 +1062,7 @@ export default function ProjectDetailPage() {
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <h2 className="font-bold text-gray-900 mb-3">Your Bid</h2>
             <div className="flex items-center gap-3">
-              <span className="text-xl font-extrabold text-gray-900">${myBid.amount.toLocaleString()}</span>
+              <span className="text-xl font-extrabold text-gray-900">{formatCurrency(myBid.amount)}</span>
               <StatusBadge status={myBid.status} />
             </div>
             <p className="text-sm text-gray-500 mt-2 leading-relaxed">{myBid.proposal}</p>

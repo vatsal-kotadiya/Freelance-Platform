@@ -99,7 +99,7 @@ export default function CreateProjectPage() {
 
       <div className="max-w-xl">
         <div className="mb-8">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Client</p>
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Freelancer</p>
           <h1 className="text-3xl font-extrabold text-gray-900">Post a Project</h1>
           <p className="text-gray-500 text-sm mt-2">Describe your project and set a budget to attract top freelancers.</p>
         </div>
@@ -198,9 +198,9 @@ export default function CreateProjectPage() {
 
           {/* Budget */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Budget (USD)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Budget (₹)</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
               <input
                 type="number"
                 value={budget}

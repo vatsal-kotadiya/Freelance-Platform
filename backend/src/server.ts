@@ -1,7 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Temporary debug — remove after confirming keys load
+console.log('[env] RAZORPAY_KEY_ID :', process.env.RAZORPAY_KEY_ID ? '✓ loaded' : '✗ MISSING');
+console.log('[env] RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET ? '✓ loaded' : '✗ MISSING');
+
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
@@ -76,7 +82,50 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+const BASE_PORT = Number(process.env.PORT) || 5000;
+const MAX_PORT  = BASE_PORT + 10;
+let currentPort = BASE_PORT;
+let isListening = false;
+
+httpServer.setMaxListeners(20);
+
+function startServer(port: number): void {
+  if (isListening) return;
+  httpServer.listen(port, () => {
+    isListening = true;
+    currentPort = port;
+    if (port !== BASE_PORT) {
+      console.warn(`⚠  Port ${BASE_PORT} was busy — using port ${port} instead.`);
+      console.warn(`   Update VITE_API_URL / VITE_SOCKET_URL in frontend/.env to match.`);
+    }
+    console.log(`Server running on http://localhost:${port}`);
+  });
+}
+
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    const next = currentPort + 1;
+    if (next > MAX_PORT) {
+      console.error(`All ports ${BASE_PORT}–${MAX_PORT} are in use. Exiting.`);
+      process.exit(1);
+    }
+    console.warn(`Port ${currentPort} in use, trying ${next}…`);
+    currentPort = next;
+    httpServer.close(() => startServer(next));
+  } else {
+    console.error('Fatal server error:', err);
+    process.exit(1);
+  }
 });
+
+process.on('SIGINT', () => {
+  console.log('\nServer shutting down…');
+  httpServer.close(() => process.exit(0));
+});
+
+process.on('SIGTERM', () => {
+  console.log('Server terminated.');
+  httpServer.close(() => process.exit(0));
+});
+
+startServer(BASE_PORT);

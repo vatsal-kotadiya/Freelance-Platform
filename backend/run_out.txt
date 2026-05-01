@@ -1,0 +1,25 @@
+
+> freelance-platform-backend@1.0.0 dev
+> ts-node-dev --respawn --exit-child --transpile-only src/server.ts
+
+[INFO] 11:37:56 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+Server running on http://localhost:5000
+[INFO] 12:44:26 Restarting: D:\Freelance Platform (test project)\backend\src\server.ts has been modified
+[env] RAZORPAY_KEY_ID : ✗ MISSING
+[env] RAZORPAY_KEY_SECRET: ✗ MISSING
+Server running on http://localhost:5000
+[INFO] 12:44:48 Restarting: D:\Freelance Platform (test project)\backend\src\server.ts has been modified
+[env] RAZORPAY_KEY_ID : ✓ loaded
+[env] RAZORPAY_KEY_SECRET: ✓ loaded
+Server running on http://localhost:5000
+Server running on http://localhost:5001
+[INFO] 15:48:47 Restarting: D:\Freelance Platform (test project)\backend\src\services\payment.service.ts has been modified
+[env] RAZORPAY_KEY_ID : ✓ loaded
+[env] RAZORPAY_KEY_SECRET: ✓ loaded
+Server running on http://localhost:5000
+[Razorpay] Creating order | paymentId=cmomjzbnx000rbwaiw8hz3psj amount=23 INR (2300 paise)
+[Razorpay] Order created | orderId=order_Sk45Wcc1JHtc2k
+[Razorpay] Creating order | paymentId=cmomjzbnx000rbwaiw8hz3psj amount=23 INR (2300 paise)
+[Razorpay] Order created | orderId=order_Sk45kry2u85xuC
+[Razorpay] Creating order | paymentId=cmomjzbnx000rbwaiw8hz3psj amount=23 INR (2300 paise)
+[Razorpay] Order created | orderId=order_Sk49XyN7EtSip7

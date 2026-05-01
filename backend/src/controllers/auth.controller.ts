@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Role } from '@prisma/client';
 import * as authService from '../services/auth.service';
+import prisma from '../lib/prisma';
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -43,8 +44,20 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function getMe(req: Request, res: Response) {
-  res.json({ user: req.user });
+export async function getMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+    if (!user) {
+      res.status(401).json({ error: 'User not found — please log in again' });
+      return;
+    }
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
 }
 
 const forgotSchema = z.object({ email: z.string().email() });

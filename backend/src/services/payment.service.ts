@@ -113,15 +113,20 @@ export async function createRazorpayOrder(paymentId: string, freelancerId: strin
     throw new Error('Cannot create payment order at this stage');
   }
 
+  const amountInPaise = Math.round(payment.amount * 100);
+  console.log(`[Razorpay] Creating order | paymentId=${paymentId} amount=${payment.amount} INR (${amountInPaise} paise)`);
+
   const order = await getRazorpay().orders.create({
-    amount: Math.round(payment.amount * 100),
+    amount: amountInPaise,
     currency: 'INR',
     receipt: paymentId,
   });
 
+  console.log(`[Razorpay] Order created | orderId=${order.id}`);
+
   return {
     orderId: order.id,
-    amount: order.amount,
+    amount: Number(order.amount),
     currency: order.currency,
     razorpayKeyId: process.env.RAZORPAY_KEY_ID!,
   };

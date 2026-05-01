@@ -176,7 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-medium text-gray-900 leading-tight">{user?.name}</p>
-              <p className="text-xs text-gray-400 leading-tight capitalize">{user?.role?.toLowerCase()}</p>
+              <p className="text-xs text-gray-400 leading-tight capitalize">{user?.role === 'CLIENT' ? 'freelancer' : 'client'}</p>
             </div>
           </div>
 

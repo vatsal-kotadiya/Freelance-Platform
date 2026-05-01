@@ -4,6 +4,7 @@ import { getMyBids } from '../api/bids';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
+import { formatCurrency } from '../utils/currency';
 
 const PAGE_SIZE = 10;
 
@@ -46,7 +47,7 @@ export default function MyBidsPage() {
       </button>
 
       <div className="mb-8">
-        <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Freelancer</p>
+        <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Client</p>
         <h1 className="text-3xl font-extrabold text-gray-900">My Bids</h1>
       </div>
 
@@ -78,7 +79,7 @@ export default function MyBidsPage() {
                   <h2 className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors truncate">{b.project.title}</h2>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-1">{b.proposal}</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    Your bid: <span className="font-bold text-gray-700">${b.amount.toLocaleString()}</span>
+                    Your bid: <span className="font-bold text-gray-700">{formatCurrency(b.amount)}</span>
                   </p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">

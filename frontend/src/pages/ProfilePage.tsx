@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import Layout from '../components/Layout';
+import { formatCurrency } from '../utils/currency';
 import {
   getProfile,
   updateProfile,
@@ -208,7 +209,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-extrabold text-gray-900">{profile.name}</h1>
                 <span className="text-xs bg-orange-50 text-orange-600 border border-orange-200 px-2.5 py-1 rounded-full font-semibold">
-                  {profile.role}
+                  {profile.role === 'CLIENT' ? 'FREELANCER' : 'CLIENT'}
                 </span>
               </div>
 
@@ -220,7 +221,7 @@ export default function ProfilePage() {
                 )}
                 {profile.role === 'FREELANCER' && profile.hourlyRate != null && (
                   <p className="text-sm text-gray-500 flex items-center gap-1">
-                    <span>💰</span>${profile.hourlyRate}/hr
+                    <span>💰</span>{formatCurrency(profile.hourlyRate)}/hr
                   </p>
                 )}
               </div>
@@ -291,7 +292,7 @@ export default function ProfilePage() {
 
               {profile.role === 'FREELANCER' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hourly Rate (USD)</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hourly Rate (₹)</label>
                   <input
                     type="number"
                     min={1}
@@ -498,7 +499,7 @@ export default function ProfilePage() {
                         </a>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 mt-1 leading-relaxed">{item.description}</p>
+                    <p className="text-sm text-gray-500 mt-1 leading-relaxed whitespace-pre-wrap">{item.description}</p>
                   </div>
                   {isOwner && (
                     <div className="flex gap-1 flex-shrink-0">
@@ -546,7 +547,7 @@ export default function ProfilePage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-900">{r.reviewer.name}</span>
-                        <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full font-medium">{r.reviewer.role}</span>
+                        <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full font-medium">{r.reviewer.role === 'CLIENT' ? 'FREELANCER' : 'CLIENT'}</span>
                         {r.project && (
                           <span className="text-xs text-gray-400 truncate max-w-xs">on "{r.project.title}"</span>
                         )}

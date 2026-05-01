@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
 import SearchBar from '../components/SearchBar';
+import { formatCurrency } from '../utils/currency';
 
 const PAGE_SIZE = 10;
 
@@ -56,7 +57,7 @@ export default function MyProjectsPage() {
       </button>
 
       <div className="mb-8">
-        <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Client</p>
+        <p className="text-sm text-gray-400 font-medium uppercase tracking-widest mb-1">Freelancer</p>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-extrabold text-gray-900">My Projects</h1>
           <Link
@@ -112,7 +113,7 @@ export default function MyProjectsPage() {
             >
               <div className="min-w-0">
                 <h2 className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors truncate">{p.title}</h2>
-                <p className="text-sm text-gray-400 mt-0.5">${p.budget.toLocaleString()} · {p._count.bids} bid{p._count.bids !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-gray-400 mt-0.5">{formatCurrency(p.budget)} · {p._count.bids} bid{p._count.bids !== 1 ? 's' : ''}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <StatusBadge status={p.status} />

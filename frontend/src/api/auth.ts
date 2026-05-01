@@ -6,6 +6,9 @@ export const register = (data: { name: string; email: string; password: string; 
 export const login = (data: { email: string; password: string }) =>
   api.post('/auth/login', data).then((r) => r.data);
 
+export const getMe = (): Promise<{ user: { id: string; name: string; email: string; role: 'CLIENT' | 'FREELANCER' } }> =>
+  api.get('/auth/me').then((r) => r.data);
+
 export const forgotPassword = (email: string) =>
   api.post('/auth/forgot-password', { email }).then((r) => r.data);
 

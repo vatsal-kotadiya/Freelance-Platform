@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
 import SearchBar from '../components/SearchBar';
+import { formatCurrency } from '../utils/currency';
 
 const PAGE_SIZE = 10;
 
@@ -88,12 +89,12 @@ export default function BrowseProjectsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h2 className="font-bold text-gray-900 text-base group-hover:text-orange-500 transition-colors">{p.title}</h2>
-                  <p className="text-gray-500 text-sm mt-1 line-clamp-2 leading-relaxed">{p.description}</p>
+                  <p className="text-gray-500 text-sm mt-1 line-clamp-2 leading-relaxed whitespace-pre-wrap">{p.description}</p>
                 </div>
                 <StatusBadge status={p.status} />
               </div>
               <div className="flex items-center gap-5 mt-4 text-sm">
-                <span className="font-bold text-gray-900 text-base">${p.budget.toLocaleString()}</span>
+                <span className="font-bold text-gray-900 text-base">{formatCurrency(p.budget)}</span>
                 <span className="text-gray-400">{p._count.bids} bid{p._count.bids !== 1 ? 's' : ''}</span>
                 <span className="text-gray-400">By <span className="text-gray-600 font-medium">{p.client.name}</span></span>
               </div>
