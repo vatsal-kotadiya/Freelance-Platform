@@ -4,6 +4,7 @@ interface SearchBarProps {
   placeholder?: string;
   getSuggestions: (q: string) => Promise<string[]> | string[];
   onSearch: (q: string) => void;
+  compact?: boolean;
 }
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
@@ -19,7 +20,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
-export default function SearchBar({ placeholder = 'Search...', getSuggestions, onSearch }: SearchBarProps) {
+export default function SearchBar({ placeholder = 'Search...', getSuggestions, onSearch, compact = false }: SearchBarProps) {
   const [inputValue, setInputValue] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function SearchBar({ placeholder = 'Search...', getSuggestions, o
     if (!inputValue.trim()) {
       setSuggestions([]);
       setOpen(false);
+      if (compact) onSearch('');
       return;
     }
     debounceRef.current = setTimeout(async () => {
@@ -41,6 +43,7 @@ export default function SearchBar({ placeholder = 'Search...', getSuggestions, o
       setSuggestions(results);
       setOpen(results.length > 0);
       setActiveIndex(-1);
+      if (compact) onSearch(inputValue.trim());
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [inputValue]);
@@ -95,7 +98,7 @@ export default function SearchBar({ placeholder = 'Search...', getSuggestions, o
   }
 
   return (
-    <div ref={wrapperRef} className="flex items-start gap-3 mb-6">
+    <div ref={wrapperRef} className={`flex items-start gap-3 ${compact ? '' : 'mb-6'}`}>
       {/* Input + dropdown anchored here */}
       <div className="relative flex-1">
         <input
@@ -152,13 +155,15 @@ export default function SearchBar({ placeholder = 'Search...', getSuggestions, o
         )}
       </div>
 
-      {/* Search button — outside the relative container so dropdown width = input width */}
-      <button
-        onMouseDown={(e) => { e.preventDefault(); commit(inputValue); }}
-        className="bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all shadow-sm hover:shadow-md whitespace-nowrap"
-      >
-        Search
-      </button>
+      {/* Search button — hidden in compact mode */}
+      {!compact && (
+        <button
+          onMouseDown={(e) => { e.preventDefault(); commit(inputValue); }}
+          className="bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all shadow-sm hover:shadow-md whitespace-nowrap"
+        >
+          Search
+        </button>
+      )}
     </div>
   );
 }
