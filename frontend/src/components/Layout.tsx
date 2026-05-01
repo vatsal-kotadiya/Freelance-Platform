@@ -7,7 +7,7 @@ import { getNotifications, markOneRead, markAllRead } from '../api/notifications
 
 let notifSocket: Socket | null = null;
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -189,7 +189,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">{children}</main>
+      <main className={wide ? 'max-w-7xl mx-auto px-6 py-8' : 'max-w-5xl mx-auto px-6 py-8'}>{children}</main>
     </div>
   );
 }
