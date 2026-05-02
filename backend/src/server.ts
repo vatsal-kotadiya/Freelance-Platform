@@ -1,10 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
+// Load .env from backend/ directory (works in dev; in prod, env vars come from Render dashboard)
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-// Temporary debug — remove after confirming keys load
-console.log('[env] RAZORPAY_KEY_ID :', process.env.RAZORPAY_KEY_ID ? '✓ loaded' : '✗ MISSING');
-console.log('[env] RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET ? '✓ loaded' : '✗ MISSING');
 
 import express from 'express';
 import cors from 'cors';
@@ -29,7 +26,8 @@ import { setIo } from './lib/io';
 const app = express();
 const httpServer = createServer(app);
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+const corsOrigin = process.env.CLIENT_URL || false;
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
@@ -45,9 +43,17 @@ app.use('/api', fileRoutes);
 
 app.use(errorHandler);
 
+// Serve React frontend in production
+// __dirname is backend/dist/ after tsc, so ../../frontend/dist resolves to frontend/dist
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDist));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
+
 // Socket.io setup
 const io = new SocketServer(httpServer, {
-  cors: { origin: process.env.CLIENT_URL, credentials: true },
+  cors: { origin: corsOrigin, credentials: true },
 });
 
 setIo(io);
@@ -82,50 +88,21 @@ io.on('connection', (socket) => {
   });
 });
 
-const BASE_PORT = Number(process.env.PORT) || 5000;
-const MAX_PORT  = BASE_PORT + 10;
-let currentPort = BASE_PORT;
-let isListening = false;
-
-httpServer.setMaxListeners(20);
-
-function startServer(port: number): void {
-  if (isListening) return;
-  httpServer.listen(port, () => {
-    isListening = true;
-    currentPort = port;
-    if (port !== BASE_PORT) {
-      console.warn(`⚠  Port ${BASE_PORT} was busy — using port ${port} instead.`);
-      console.warn(`   Update VITE_API_URL / VITE_SOCKET_URL in frontend/.env to match.`);
-    }
-    console.log(`Server running on http://localhost:${port}`);
-  });
-}
+const PORT = Number(process.env.PORT) || 5000;
 
 httpServer.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EADDRINUSE') {
-    const next = currentPort + 1;
-    if (next > MAX_PORT) {
-      console.error(`All ports ${BASE_PORT}–${MAX_PORT} are in use. Exiting.`);
-      process.exit(1);
-    }
-    console.warn(`Port ${currentPort} in use, trying ${next}…`);
-    currentPort = next;
-    httpServer.close(() => startServer(next));
-  } else {
-    console.error('Fatal server error:', err);
-    process.exit(1);
-  }
+  console.error('Fatal server error:', err);
+  process.exit(1);
 });
 
 process.on('SIGINT', () => {
-  console.log('\nServer shutting down…');
   httpServer.close(() => process.exit(0));
 });
 
 process.on('SIGTERM', () => {
-  console.log('Server terminated.');
   httpServer.close(() => process.exit(0));
 });
 
-startServer(BASE_PORT);
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

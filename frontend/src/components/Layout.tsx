@@ -27,7 +27,7 @@ export default function Layout({ children, wide }: { children: React.ReactNode; 
   useEffect(() => {
     if (!token || !user) return;
     getNotifications().then(setNotifications).catch(() => {});
-    notifSocket = io(import.meta.env.VITE_SOCKET_URL, { auth: { token } });
+    notifSocket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, { auth: { token } });
     notifSocket.on('notification', (n) => addNotification(n));
     return () => {
       notifSocket?.disconnect();
