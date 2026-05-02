@@ -108,6 +108,13 @@ process.on('SIGTERM', () => {
   httpServer.close(() => process.exit(0));
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    const { default: prisma } = await import('./lib/prisma');
+    await prisma.$connect();
+    console.log('[db] PostgreSQL connected successfully');
+  } catch (err) {
+    console.error('[db] Failed to connect to PostgreSQL:', err);
+  }
 });
