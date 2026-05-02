@@ -1,7 +1,12 @@
 import dotenv from 'dotenv';
 import path from 'path';
 // Load .env from backend/ directory (works in dev; in prod, env vars come from Render dashboard)
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+}
 
 import express from 'express';
 import cors from 'cors';
